@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.png" alt="岁月涟漪 · Ripples of Aion banner" width="100%" />
+</p>
+
 <h1 align="center">⏳ 岁月涟漪 · Ripples of Aion</h1>
 
 <p align="center">

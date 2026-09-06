@@ -1,0 +1,31 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # 每周一跑一次最新规则集，覆盖已合入 main 的问题
+  schedule:
+    - cron: "30 5 * * 1"
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          # 安全扩展查询集：与 SECURITY.md 的安全姿态对齐
+          queries: security-extended
+          build-mode: none
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:javascript-typescript"
