@@ -1,4 +1,4 @@
-<h1 align="center">岁月涟漪 · Ripples of Aion</h1>
+<h1 align="center">⏳ 岁月涟漪 · Ripples of Aion</h1>
 
 <p align="center">
   <a href="https://github.com/modusensus/suiyue-lianyi/releases"><img src="https://img.shields.io/badge/version-0.1.0-ff69b4?style=flat-square" alt="version"></a>
@@ -23,7 +23,7 @@
 
 `岁月涟漪`（Ripples of Aion，插件 id `suiyue-lianyi`）是一个 [Cyrene](https://github.com/Playa-0v0/Cyrene-Plugins) 插件，为昔涟提供**结构化记忆层**。它不是内置记忆引擎的替代品，而是一个并行记忆层：内置引擎对外只读，而它把每一轮对话中值得长期记住的事实**逐条沉淀、去重入库、混合检索、按需注入**。
 
-## 它能解决什么问题
+## 💭 它能解决什么问题
 
 Cyrene 的内置记忆（DMAE / 实体图谱 / RAG）不对插件开放写入，插件读不到内部向量库。岁月涟漪做内置没有的那一层：
 
@@ -33,7 +33,7 @@ Cyrene 的内置记忆（DMAE / 实体图谱 / RAG）不对插件开放写入，
 | 同一件事反复聊了十次 | 每次都可能重复入库 | 内容哈希去重，完全相同的事实只存一份 |
 | 想知道「你对 X 的说法什么时候变过」 | 内置图谱只有 mentionCount | 实体属性时间轴 `valid_until`（规划中） |
 
-## 核心特性
+## ✨ 核心特性
 
 - **逐事实沉淀** — 每轮对话由 LLM 抽取 0~N 条事实，每条独立成记忆记录，利于检索精度与时间轴
 - **写入单收口** — 所有写入走唯一 `remember()`，内容哈希去重，事件重放不产生重复
@@ -43,7 +43,7 @@ Cyrene 的内置记忆（DMAE / 实体图谱 / RAG）不对插件开放写入，
 - **记忆图谱窗口** — 插件卡片「打开」弹出记忆面板，可浏览、可遗忘
 - **人类可读存储** — JSONL 追加日志 + 内存索引，不上 native sqlite，崩溃只丢最后一行
 
-## 安装
+## 📦 安装
 
 ```bash
 # 方式一：本地开发机一键部署（构建 → 拷贝到 Cyrene 插件目录）
@@ -56,7 +56,7 @@ npm run deploy
 
 > 需要 Node 22+。插件数据存于 `plugin-data/suiyue-lianyi/`，卸载插件不丢记忆。
 
-## 配置（可选）
+## 🔧 配置（可选）
 
 装完即用（默认纯关键词检索）。要开语义检索时：
 
@@ -67,7 +67,7 @@ npm run deploy
 | 模型 | `embeddingModel` | `text-embedding-3-small` | 按端点支持的填 |
 | API Key | `ctx.deps.secrets` 中的键名 | `embedding_api_key` | 用宿主安全存储，不落代码 |
 
-## 测试与质量保障
+## 🧪 测试与质量保障
 
 全量测试基于 vitest，契约测试**直接加载构建产物**——测的就是要发布的东西。
 
@@ -85,7 +85,7 @@ npm run build       # esbuild 打包 + 记录源码哈希
 npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 ```
 
-## 设计约束（踩坑沉淀）
+## 🛡️ 设计约束（踩坑沉淀）
 
 - `host:turn:finished` 宿主超 5 秒只记日志——监听器里只投队列，不 await 重活
 - `finalMessageId` 只有桌面成功终态才有，非成功终态绝不自己补
@@ -94,7 +94,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 - 工具 id 必须 `<插件id>_` 前缀；错误只按稳定错误码分支
 - Cyrene-Plugins 收录编译产物：prepack 强制 check-sync，杜绝「改了 TS 忘了构建」的静默失效
 
-## 路线图
+## 🗺️ 路线图
 
 ```
 🫧 骨架与纵切（v0.1.0）→ 🕸️ 实体时间轴（v0.2.0）→ 🌡️ heat 衰减（v0.3.0）→ 💤 autoDream 整合（v0.4.0）→ ✨ 精排与图谱增强
@@ -108,7 +108,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 | **v0.4.0** | autoDream 空闲整合（聚类 + 冲突标记 + 启动补跑） | 🚧 |
 | **v0.5.0** | LLM rerank 精排 + 图谱窗口可视化增强 | 🚧 |
 
-## 本地开发
+## 🛠️ 本地开发
 
 ```bash
 npm install
@@ -132,7 +132,7 @@ MIT
 
 Ripples of Aion (岁月涟漪, plugin id `suiyue-lianyi`) is a [Cyrene](https://github.com/Playa-0v0/Cyrene-Plugins) plugin that provides a **structured memory layer** for the companion. It is not a replacement for the built-in memory engine but a parallel memory layer: the engine is read-only to plugins, while this plugin settles each turn's memorable facts **record by record — deduplicated, hybrid-searchable, and injected on demand**.
 
-## What it does
+## 💭 What it does
 
 Cyrene's built-in memory (DMAE / entity graph / RAG) is not writable by plugins, and plugins cannot query its internal vector store. Ripples of Aion builds the layer the engine doesn't offer:
 
@@ -142,7 +142,7 @@ Cyrene's built-in memory (DMAE / entity graph / RAG) is not writable by plugins,
 | The same topic comes up ten times | Every occurrence may be stored again | Content-hash dedup: identical facts are stored exactly once |
 | "When did your answer about X change?" | Built-in graph only has mentionCount | Entity attribute timeline with `valid_until` (planned) |
 
-## Core Features
+## ✨ Core Features
 
 - **Per-fact records** — each turn yields 0~N LLM-extracted facts, each stored as an independent memory record for retrieval precision and timelines
 - **Single write gate** — every write goes through one `remember()` with content-hash dedup; event replays produce no duplicates
@@ -152,7 +152,7 @@ Cyrene's built-in memory (DMAE / entity graph / RAG) is not writable by plugins,
 - **Memory graph window** — the plugin card's "open" button pops a memory panel for browsing and forgetting
 - **Human-readable storage** — JSONL append-only journal + in-memory index; no native sqlite; a crash loses at most the last line
 
-## Install
+## 📦 Install
 
 ```bash
 # Option A: one-command local deploy (build + copy into Cyrene's plugin dir)
@@ -165,7 +165,7 @@ npm run deploy
 
 > Requires Node 22+. Plugin data lives in `plugin-data/suiyue-lianyi/`; uninstalling the plugin keeps your memories.
 
-## Configuration (Optional)
+## 🔧 Configuration (Optional)
 
 Works out of the box (keyword-only retrieval). To enable semantic search:
 
@@ -176,7 +176,7 @@ Works out of the box (keyword-only retrieval). To enable semantic search:
 | Model | `embeddingModel` | `text-embedding-3-small` | Whatever your endpoint serves |
 | API Key | key name inside `ctx.deps.secrets` | `embedding_api_key` | Stored in the host secure store, never in code |
 
-## Testing & Quality
+## 🧪 Testing & Quality
 
 Tests run on vitest; the contract suite **loads the built artifact directly** — it tests exactly what ships.
 
@@ -194,7 +194,7 @@ npm run build       # esbuild bundle + record source hash
 npm run check-sync  # prepack gate: stale artifact fails with exit 1
 ```
 
-## Design Constraints (Lessons Baked In)
+## 🛡️ Design Constraints (Lessons Baked In)
 
 - `host:turn:finished` is cancelled beyond 5s — the listener only enqueues; heavy work never runs inline
 - `finalMessageId` exists only on desktop success-terminal turns; never fabricated otherwise
@@ -203,7 +203,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 - Tool ids must use the `<plugin-id>_` prefix; errors branch on stable error codes only
 - Cyrene-Plugins indexes the compiled artifact: prepack enforces check-sync, killing the "edited TS but forgot to rebuild" silent-failure class
 
-## Roadmap
+## 🗺️ Roadmap
 
 | Version | Theme | Status |
 |------|------|------|
@@ -213,7 +213,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 | **v0.4.0** | autoDream idle consolidation (clustering + conflict marking + catch-up on boot) | 🚧 |
 | **v0.5.0** | LLM rerank + graph window visualization | 🚧 |
 
-## Local Development
+## 🛠️ Local Development
 
 ```bash
 npm install
