@@ -1,4 +1,4 @@
-<h1 align="center">岁月涟漪 · suiyue-lianyi</h1>
+<h1 align="center">岁月涟漪 · Ripples of Aion</h1>
 
 <p align="center">
   <a href="https://github.com/modusensus/suiyue-lianyi/releases"><img src="https://img.shields.io/badge/version-0.1.0-ff69b4?style=flat-square" alt="version"></a>
@@ -19,9 +19,9 @@
 
 # 🇨🇳 岁月涟漪（中文）
 
-> **岁月无声，涟漪有痕** —— 每一轮对话都在时间的池塘里漾开一圈涟漪，岁月涟漪把涟漪里的事实沉淀成可检索的记忆。
+> **岁月无声，涟漪有痕** —— 你随口说过的每一件小事，都在时光的池塘里漾开涟漪；岁月涟漪把涟漪里的温度一一收好。等某天你回头，她都记得。
 
-`岁月涟漪`（suiyue-lianyi）是一个 [Cyrene](https://github.com/Playa-0v0/Cyrene-Plugins) 插件，为昔涟提供**结构化记忆层**。它不是内置记忆引擎的替代品，而是一个并行记忆层：内置引擎对外只读，而它把每一轮对话中值得长期记住的事实**逐条沉淀、去重入库、混合检索、按需注入**。
+`岁月涟漪`（Ripples of Aion，插件 id `suiyue-lianyi`）是一个 [Cyrene](https://github.com/Playa-0v0/Cyrene-Plugins) 插件，为昔涟提供**结构化记忆层**。它不是内置记忆引擎的替代品，而是一个并行记忆层：内置引擎对外只读，而它把每一轮对话中值得长期记住的事实**逐条沉淀、去重入库、混合检索、按需注入**。
 
 ## 它能解决什么问题
 
@@ -126,17 +126,17 @@ MIT
 
 <a name="english"></a>
 
-# 🇬🇧 岁月涟漪 / suiyue-lianyi (English)
+# 🇬🇧 Ripples of Aion (English)
 
-> **Time flows silently; ripples leave traces** — every conversation stirs a ripple in the pond of time. Suiyue Lianyi settles the facts within those ripples into searchable memory.
+> **Time says nothing; the ripples remember.** — Every little thing you let slip stirs a ripple across the pond of time. Ripples of Aion gathers what the ripples leave behind — softly and faithfully, the way someone keeps the small things you never thought mattered.
 
-`suiyue-lianyi` (岁月涟漪, "Ripples of Time") is a [Cyrene](https://github.com/Playa-0v0/Cyrene-Plugins) plugin that provides a **structured memory layer** for the companion. It is not a replacement for the built-in memory engine but a parallel memory layer: the engine is read-only to plugins, while this plugin settles each turn's memorable facts **record by record — deduplicated, hybrid-searchable, and injected on demand**.
+Ripples of Aion (岁月涟漪, plugin id `suiyue-lianyi`) is a [Cyrene](https://github.com/Playa-0v0/Cyrene-Plugins) plugin that provides a **structured memory layer** for the companion. It is not a replacement for the built-in memory engine but a parallel memory layer: the engine is read-only to plugins, while this plugin settles each turn's memorable facts **record by record — deduplicated, hybrid-searchable, and injected on demand**.
 
 ## What it does
 
-Cyrene's built-in memory (DMAE / entity graph / RAG) is not writable by plugins, and plugins cannot query its internal vector store. Suiyue Lianyi builds the layer the engine doesn't offer:
+Cyrene's built-in memory (DMAE / entity graph / RAG) is not writable by plugins, and plugins cannot query its internal vector store. Ripples of Aion builds the layer the engine doesn't offer:
 
-| Scenario | Without suiyue-lianyi | With suiyue-lianyi |
+| Scenario | Without Ripples of Aion | With Ripples of Aion |
 |------|-------------|-------------|
 | You mention exam prep on Monday, chat again on Thursday | Built-in L0/L2 recall is hit-or-miss | "You said last week you were studying late — is that any better now?" |
 | The same topic comes up ten times | Every occurrence may be stored again | Content-hash dedup: identical facts are stored exactly once |
