@@ -1,0 +1,38 @@
+# CodeRabbit 评审配置
+# 文档：https://docs.coderabbit.ai/reference/configuration
+language: zh-CN
+
+reviews:
+  profile: "active"
+  high_level_summary: true
+  review_status: true
+  # 排除产物和生成物，聚焦源码
+  path_filters:
+    - "!dist/**"
+    - "!coverage/**"
+    - "!package-lock.json"
+    - "!*.png"
+  path_instructions:
+    - path: "src/**"
+      instructions: |
+        以下是本仓库的硬性规则，违反时请明确指出：
+        - 所有记忆写入必须走 core/remember.ts 单收口（内容哈希去重），不得绕过
+        - 后台重活必须进 TaskQueue 并尊重 ctx.signal；host:turn:finished 监听器里只投队列，不 await 重活
+        - fail-safe：抽取/向量化/存储等后台路径失败只 warn 降级，绝不允许抛异常阻断聊天主流程
+        - 宿主服务错误只按稳定错误码（isPluginHostError + E_*）分支，禁止匹配错误文案
+        - 零运行时依赖：禁止引入任何第三方运行时包（Node 内置 + 全局 fetch + 宿主注入服务除外）
+        - 记忆内容是 LLM 派生的不可信数据：不得插值进 HTML/shell/文件路径；面板渲染只允许 textContent
+        - electron 只允许在 src/ui/ 内懒加载 require，其他模块不得依赖
+        - 工具 id 必须用 PLUGIN_ID 常量加前缀，不得硬编码插件 id
+    - path: "tests/**"
+      instructions: |
+        - 新功能必须有对应测试；断言不得依赖 Date.now() 的同毫秒顺序（tools.test.ts 有过 flaky 教训，时间戳要显式固定）
+        - 契约测试直接加载 dist 构建产物，因此 CI 先 build 再 test
+        - 测试用例数变化时需同步 README 徽章与文档中的数字
+    - path: "scripts/**"
+      instructions: "check-sync 闸门逻辑变更时，需说明如何防止「源码改了产物没重建」的绕过路径"
+    - path: "manifest.json"
+      instructions: "version 与 package.json 必须同步；deps 只能取 api.ts 的 PluginCapability 枚举值"
+
+chat:
+  auto_reply: true
