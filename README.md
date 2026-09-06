@@ -3,8 +3,8 @@
 <p align="center">
   <a href="https://github.com/modusensus/suiyue-lianyi/releases"><img src="https://img.shields.io/badge/version-0.1.0-ff69b4?style=flat-square" alt="version"></a>
   <a href="https://github.com/modusensus/suiyue-lianyi/actions"><img src="https://img.shields.io/github/actions/workflow/status/modusensus/suiyue-lianyi/test.yml?style=flat-square&label=CI" alt="CI"></a>
-  <img src="https://img.shields.io/badge/tests-20%20passed-ff69b4?style=flat-square" alt="tests">
-  <img src="https://img.shields.io/badge/tsc-0%20errors-ff69b4?style=flat-square" alt="typecheck">
+  <img src="https://img.shields.io/badge/tests-26%20passed-ff69b4?style=flat-square" alt="tests">
+  <a href="https://codecov.io/gh/modusensus/suiyue-lianyi"><img src="https://img.shields.io/codecov/c/github/modusensus/suiyue-lianyi/main?style=flat-square&color=ff69b4&label=coverage" alt="coverage"></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-ff69b4?style=flat-square&logo=typescript&logoColor=white" alt="typescript">
   <img src="https://img.shields.io/badge/node-22%2B-ff69b4?style=flat-square&logo=nodedotjs&logoColor=white" alt="node">
   <img src="https://img.shields.io/badge/platform-Cyrene%20Plugin%20API%20v1-ff69b4?style=flat-square" alt="platform">
@@ -76,6 +76,7 @@ npm run deploy
 | `tests/store.test.ts` | 7 | JSONL 重放恢复、内容哈希去重、软删隔离、轮次永久标记、关键词排序、统计、空内容边界 |
 | `tests/queue.test.ts` | 5 | 串行顺序、抛错不阻塞、signal 中止丢弃排队、signal 透传、已中止入队放行 |
 | `tests/pipeline.test.ts` | 5 | 逐事实入库带溯源、同轮重复摄入去重、坏 LLM 输出跳过、空消息边界、队列串行摄入 |
+| `tests/tools.test.ts` | 6 | 工具空态与降级提示、hybrid 排序/过滤语义、直通精排、hot-context 预算注入与中止 |
 | `tests/contract.test.ts` | 3 | 产物契约（工具前缀/provider/IPC/订阅/dispose）、recall 空态、unregister 幂等 |
 
 ```bash
@@ -113,7 +114,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 20 个测试
+npm test           # 26 个测试
 npm run build
 npm run deploy     # 构建并安装到本机 Cyrene
 ```
@@ -185,6 +186,7 @@ Tests run on vitest; the contract suite **loads the built artifact directly** �
 | `tests/store.test.ts` | 7 | JSONL replay, content-hash dedup, soft-delete isolation, permanent turn markers, keyword ranking, stats, empty-content edge |
 | `tests/queue.test.ts` | 5 | Serial order, error isolation, abort drops pending, signal passthrough, enqueue-after-abort |
 | `tests/pipeline.test.ts` | 5 | Per-fact ingestion with provenance, duplicate-turn dedup, malformed LLM output skip, empty-message edge, queued serial ingestion |
+| `tests/tools.test.ts` | 6 | Tool empty-state fallbacks, hybrid ranking/filter semantics, passthrough rerank, hot-context budget injection and abort |
 | `tests/contract.test.ts` | 3 | Artifact contract (tool prefix / provider / IPC / subscription / dispose), recall empty state, unregister idempotency |
 
 ```bash
@@ -218,7 +220,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 20 tests
+npm test           # 26 tests
 npm run build
 npm run deploy     # build + install into local Cyrene
 ```

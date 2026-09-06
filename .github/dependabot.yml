@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # 运行时零依赖，这里只维护开发依赖（vitest / esbuild / typescript / SDK）
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+  # CI 用的 actions 自身也要跟进版本
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

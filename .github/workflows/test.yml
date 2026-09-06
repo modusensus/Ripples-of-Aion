@@ -35,6 +35,19 @@ jobs:
       - name: Tests
         run: npm test
 
+      # 覆盖率只在 node 24 job 上跑一次，避免重复上传
+      - name: Tests with coverage
+        if: matrix.node-version == 24
+        run: npm run test:coverage
+
+      - name: Upload to Codecov
+        if: matrix.node-version == 24
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          fail_ci_if_error: false
+
       # 源码哈希 vs 产物同步闸门（防止改了 TS 忘了构建的静默失效）
       - name: Check sync gate
         run: npm run check-sync

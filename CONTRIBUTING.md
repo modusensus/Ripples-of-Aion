@@ -26,7 +26,7 @@ suiyue-lianyi/
 │   ├── provider/         # hot-context prompt provider
 │   ├── ui/               # graph window, private IPC, panel
 │   └── index.ts          # register / unregister / open
-├── tests/                # vitest suite (4 suites / 20 cases)
+├── tests/                # vitest suite (5 suites / 26 cases)
 ├── scripts/              # build.mjs / check-sync.mjs / deploy.mjs
 └── dist/                 # build output (gitignored, never hand-edited)
 ```
@@ -57,6 +57,7 @@ npm run deploy      # build + install into local Cyrene (%APPDATA%/live2d-cyrene
 |---------|-------------|
 | `npm run typecheck` | TypeScript strict check, no emit |
 | `npm test` | Full vitest suite (store / queue / pipeline / contract) |
+| `npm run test:coverage` | Tests + v8 coverage (uploaded to Codecov in CI) |
 | `npm run build` | esbuild bundle + manifest + panel assets |
 | `npm run check-sync` | Verify source hash ↔ artifact consistency |
 | `npm run deploy` | Build and copy into local Cyrene plugin dir |
@@ -156,7 +157,7 @@ suiyue-lianyi/
 │   ├── provider/         # hot-context prompt provider
 │   ├── ui/               # 图谱窗口、私有 IPC、面板
 │   └── index.ts          # register / unregister / open
-├── tests/                # vitest 测试（4 套件 / 20 用例）
+├── tests/                # vitest 测试（5 套件 / 26 用例）
 ├── scripts/              # build.mjs / check-sync.mjs / deploy.mjs
 └── dist/                 # 构建产物（gitignore，禁止手改）
 ```
@@ -187,6 +188,7 @@ npm run deploy      # 构建 + 安装到本机 Cyrene（%APPDATA%/live2d-cyrene/
 |------|------|
 | `npm run typecheck` | TypeScript 严格模式检查 |
 | `npm test` | vitest 全量测试（store / queue / pipeline / contract） |
+| `npm run test:coverage` | 测试 + v8 覆盖率（CI 中上传 Codecov） |
 | `npm run build` | esbuild 打包 + manifest + 面板资源 |
 | `npm run check-sync` | 校验源码哈希 ↔ 产物一致性 |
 | `npm run deploy` | 构建并拷贝到本机 Cyrene 插件目录 |

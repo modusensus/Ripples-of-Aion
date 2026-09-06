@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, verify and publish GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Full quality chain
+        run: |
+          npm run typecheck
+          npm run build
+          npm test
+          npm run check-sync
+
+      # 标签必须与 manifest.json / package.json 的版本一致
+      - name: Verify tag matches manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION=$(node -e "console.log(require('./manifest.json').version)")
+          PKG_VERSION=$(node -e "console.log(require('./package.json').version)")
+          if [ "$TAG" != "$MANIFEST_VERSION" ] || [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "::error::tag v$TAG != manifest $MANIFEST_VERSION / package $PKG_VERSION"
+            exit 1
+          fi
+
+      # 打插件 ZIP：manifest + index.cjs + panel（结构即 Cyrene 导入格式）
+      - name: Package plugin ZIP
+        run: |
+          cd dist/plugin
+          zip -r "../suiyue-lianyi-${GITHUB_REF_NAME}.zip" suiyue-lianyi
+          cd ../..
+          unzip -l "dist/suiyue-lianyi-${GITHUB_REF_NAME}.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/suiyue-lianyi-*.zip
+          generate_release_notes: true
