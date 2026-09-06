@@ -1,0 +1,11 @@
+{
+  "apiVersion": 1,
+  "id": "suiyue-lianyi",
+  "name": "岁月涟漪",
+  "version": "0.1.0",
+  "description": "结构化记忆层：自动沉淀对话事实，支持混合检索、实体时间轴与记忆图谱窗口。",
+  "author": "modusensus",
+  "entry": "index.cjs",
+  "defaultEnabled": false,
+  "deps": ["llm", "conversations", "secrets"]
+}

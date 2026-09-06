@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>岁月涟漪 · 记忆图谱</title>
+  <style>
+    /* 最小深色面板样式 */
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: #14161a;
+      color: #d8dce3;
+    }
+    h1 { font-size: 16px; margin: 0 0 4px; color: #e8ecf2; }
+    #stats { font-size: 12px; color: #8a93a3; margin: 0 0 12px; }
+    #memory-list { list-style: none; margin: 0; padding: 0; }
+    #memory-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #1c2026;
+      border: 1px solid #262c35;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .memory-body { flex: 1; min-width: 0; }
+    .memory-content { font-size: 13px; line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
+    .memory-time { font-size: 11px; color: #6d7686; margin-top: 4px; }
+    .forget-btn {
+      flex: none;
+      font-size: 12px;
+      color: #d8dce3;
+      background: #2a303a;
+      border: 1px solid #39404d;
+      border-radius: 6px;
+      padding: 3px 10px;
+      cursor: pointer;
+    }
+    .forget-btn:hover { background: #3a4250; }
+    .forget-btn:disabled { opacity: 0.5; cursor: default; }
+    .empty { justify-content: center; color: #6d7686; }
+  </style>
+</head>
+<body>
+  <h1>岁月涟漪 · 记忆图谱</h1>
+  <p id="stats">加载中…</p>
+  <ul id="memory-list">
+    <li class="empty">加载中…</li>
+  </ul>
+  <script src="./panel.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "suiyue-lianyi",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "岁月涟漪：Cyrene 结构化记忆层插件",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check-sync": "node scripts/check-sync.mjs",
+    "prepack": "npm run check-sync",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "deploy": "npm run build && node scripts/deploy.mjs"
+  },
+  "devDependencies": {
+    "@playa0v0/cyrene-plugin-sdk": "^0.1.0",
+    "@types/node": "^22.13.10",
+    "esbuild": "^0.25.1",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
+  }
+}
