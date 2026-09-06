@@ -23,7 +23,8 @@
   契约测试直接加载构建产物，覆盖率上传 Codecov
 - CI：Node 22/24 矩阵全链路（typecheck → build → test → check-sync），覆盖率上传
   Codecov；tag 推送自动跑质量链、校验标签与 manifest/package 版本一致、打插件 ZIP
-  并创建 GitHub Release；CodeQL（security-extended）每周扫描 + PR 检查；
+  并创建 GitHub Release；CodeQL（security-extended）每周扫描 + PR 检查；CodeRabbit
+  按 .coderabbit.yaml 的项目硬规则做 PR 逐行评审；
   Dependabot 每周跟进开发依赖与 Actions 版本
 - 构建链：esbuild 单文件打包 + `check-sync` prepack 闸门（双向验证）+ 本机一键部署
 
