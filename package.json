@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@playa0v0/cyrene-plugin-sdk": "^0.1.0",
-    "@types/node": "^22.13.10",
+    "@types/node": "^26.4.1",
     "@vitest/coverage-v8": "3.2.7",
     "esbuild": "^0.25.1",
     "typescript": "^5.8.2",
