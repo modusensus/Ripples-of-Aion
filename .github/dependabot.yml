@@ -1,10 +1,24 @@
 version: 2
 updates:
-  # 运行时零依赖，这里只维护开发依赖（vitest / esbuild / typescript / SDK）
+  # 运行时零依赖，这里只维护直接开发依赖（vitest / esbuild / typescript / SDK）
   - package-ecosystem: npm
     directory: "/"
     schedule:
       interval: weekly
+    allow:
+      - dependency-type: "direct"
+    # 工具链大版本升级需要人工评估（迁移成本高），先挡住 major 噪音
+    ignore:
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "esbuild"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   # CI 用的 actions 自身也要跟进版本
   - package-ecosystem: github-actions
     directory: "/"

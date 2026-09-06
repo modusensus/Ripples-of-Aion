@@ -35,8 +35,9 @@ describe("工具与检索层（源码级）", () => {
 
   async function makeStoreWithContent(): Promise<MemoryStore> {
     const store = new MemoryStore(storage.storage, silentLog);
-    await remember(store, { id: "", createdAt: Date.now(), content: "用户喜欢喝手冲咖啡" }, silentLog);
-    await remember(store, { id: "", createdAt: Date.now(), content: "用户在准备期末考试" }, silentLog);
+    // 显式固定 createdAt：同分排序依赖时间戳，快速 CI 上 Date.now() 可能同毫秒导致平局退化成插入序（flaky）
+    await remember(store, { id: "", createdAt: 1000, content: "用户喜欢喝手冲咖啡" }, silentLog);
+    await remember(store, { id: "", createdAt: 2000, content: "用户在准备期末考试" }, silentLog);
     return store;
   }
 
