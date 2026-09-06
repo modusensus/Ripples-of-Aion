@@ -69,7 +69,7 @@ Memory records are **LLM-derived** and later re-injected into prompts and render
 
 ### Please DO
 
-1. **Email** `work@modusensus.space` (or open a **private security advisory** via [GitHub Security Advisories](https://github.com/modusensus/suiyue-lianyi/security/advisories))
+1. **Email** `work@modusensus.space` (or open a **private security advisory** via [GitHub Security Advisories](https://github.com/modusensus/Ripples-of-Aion/security/advisories))
 2. Include:
    - A clear description of the vulnerability
    - Steps to reproduce (minimal test case preferred)
@@ -158,7 +158,7 @@ All contributors must comply with the following security requirements:
 ## Contact
 
 - **Security contact**: `work@modusensus.space`
-- **Private advisory**: [GitHub Security Advisories](https://github.com/modusensus/suiyue-lianyi/security/advisories)
+- **Private advisory**: [GitHub Security Advisories](https://github.com/modusensus/Ripples-of-Aion/security/advisories)
 
 ---
 
@@ -239,7 +239,7 @@ Cyrene 插件运行在 **Electron 主进程中，拥有完整 Node.js 权限**�
 
 ### 请这样做
 
-1. **发送邮件**至 `work@modusensus.space`（或通过 [GitHub 私有安全公告](https://github.com/modusensus/suiyue-lianyi/security/advisories) 提交）
+1. **发送邮件**至 `work@modusensus.space`（或通过 [GitHub 私有安全公告](https://github.com/modusensus/Ripples-of-Aion/security/advisories) 提交）
 2. 邮件内容请包含：
    - 漏洞的清晰描述
    - 复现步骤（优先提供最小测试用例）
@@ -328,7 +328,7 @@ Cyrene 插件运行在 **Electron 主进程中，拥有完整 Node.js 权限**�
 ## 联系方式
 
 - **安全联系**：`work@modusensus.space`
-- **私有公告**：[GitHub Security Advisories](https://github.com/modusensus/suiyue-lianyi/security/advisories)
+- **私有公告**：[GitHub Security Advisories](https://github.com/modusensus/Ripples-of-Aion/security/advisories)
 
 ---
 
