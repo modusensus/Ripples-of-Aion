@@ -49,7 +49,7 @@ jobs:
           unzip -l "dist/suiyue-lianyi-${GITHUB_REF_NAME}.zip"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/suiyue-lianyi-*.zip
           generate_release_notes: true
