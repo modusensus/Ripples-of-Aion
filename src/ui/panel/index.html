@@ -4,53 +4,143 @@
   <meta charset="UTF-8" />
   <title>岁月涟漪 · 记忆图谱</title>
   <style>
-    /* 最小深色面板样式 */
-    :root { color-scheme: dark; }
+    /* 昔涟粉风格：珍珠白底 + 樱粉强调，圆角软阴影 */
+    :root { color-scheme: light; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 16px;
+      padding: 18px 16px 24px;
       font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
-      background: #14161a;
-      color: #d8dce3;
+      background: linear-gradient(175deg, #fff8fb 0%, #fdeef5 55%, #fbe3ee 100%);
+      color: #5c4650;
+      min-height: calc(100vh - 42px);
     }
-    h1 { font-size: 16px; margin: 0 0 4px; color: #e8ecf2; }
-    #stats { font-size: 12px; color: #8a93a3; margin: 0 0 12px; }
+    header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+    h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #e05a85, #f08bab);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .header-sub { font-size: 11px; color: #c79aa9; }
+    #stats {
+      font-size: 12px;
+      color: #b58a99;
+      margin: 0 0 14px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    #stats .pill {
+      background: #fff;
+      border: 1px solid #f5d7e2;
+      border-radius: 999px;
+      padding: 2px 10px;
+      color: #d96a90;
+    }
+    h2 {
+      font-size: 12px;
+      font-weight: 600;
+      color: #c2788f;
+      letter-spacing: 2px;
+      margin: 18px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    h2::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ec6a8e, #f7a8c0);
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #f6dce6;
+      border-radius: 14px;
+      box-shadow: 0 3px 14px rgba(224, 90, 133, 0.07);
+      padding: 4px 14px;
+      margin-bottom: 8px;
+    }
+    /* 实体时间轴 */
+    .entity-block { padding: 10px 0 6px; }
+    .entity-block + .entity-block { border-top: 1px dashed #f6dce6; }
+    .entity-name { font-size: 13px; font-weight: 700; color: #d96a90; margin-bottom: 6px; }
+    .attr-row { display: flex; gap: 10px; padding: 3px 0 3px 2px; }
+    .attr-rail {
+      flex: none;
+      width: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .attr-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex: none;
+    }
+    .attr-dot.current { background: linear-gradient(135deg, #ec6a8e, #f7a8c0); box-shadow: 0 0 0 3px #fce3ec; }
+    .attr-dot.past { background: #f0dbe3; box-shadow: none; }
+    .attr-rail .rail-line { flex: 1; width: 1px; background: #f6dce6; margin-top: 2px; }
+    .attr-body { flex: 1; min-width: 0; }
+    .attr-line { font-size: 12.5px; line-height: 1.55; }
+    .attr-line b { color: #c2597d; font-weight: 600; }
+    .attr-value { color: #463158; font-weight: 600; }
+    .attr-span { font-size: 11px; color: #c9a2b0; margin-left: 4px; }
+    .attr-line.past-line { color: #b49aa4; }
+    .attr-line.past-line .attr-value { color: #a58f9a; font-weight: 500; }
+    /* 最近记忆列表 */
     #memory-list { list-style: none; margin: 0; padding: 0; }
     #memory-list li {
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      background: #1c2026;
-      border: 1px solid #262c35;
-      border-radius: 8px;
-      padding: 10px 12px;
-      margin-bottom: 8px;
+      padding: 9px 2px;
     }
+    #memory-list li + li { border-top: 1px solid #fbeef3; }
     .memory-body { flex: 1; min-width: 0; }
-    .memory-content { font-size: 13px; line-height: 1.6; word-break: break-word; white-space: pre-wrap; }
-    .memory-time { font-size: 11px; color: #6d7686; margin-top: 4px; }
+    .memory-content { font-size: 12.5px; line-height: 1.6; word-break: break-word; white-space: pre-wrap; color: #5c4650; }
+    .memory-time { font-size: 10.5px; color: #c9a2b0; margin-top: 3px; }
     .forget-btn {
       flex: none;
-      font-size: 12px;
-      color: #d8dce3;
-      background: #2a303a;
-      border: 1px solid #39404d;
-      border-radius: 6px;
-      padding: 3px 10px;
+      font-size: 11px;
+      color: #d96a90;
+      background: transparent;
+      border: 1px solid #f2c3d3;
+      border-radius: 999px;
+      padding: 2px 10px;
       cursor: pointer;
+      transition: background 0.15s;
     }
-    .forget-btn:hover { background: #3a4250; }
-    .forget-btn:disabled { opacity: 0.5; cursor: default; }
-    .empty { justify-content: center; color: #6d7686; }
+    .forget-btn:hover { background: #fdeef4; }
+    .forget-btn:disabled { opacity: 0.45; cursor: default; }
+    .empty { justify-content: center; color: #c9a2b0; }
+    footer { margin-top: 16px; text-align: center; font-size: 10.5px; color: #dcb6c3; }
   </style>
 </head>
 <body>
-  <h1>岁月涟漪 · 记忆图谱</h1>
-  <p id="stats">加载中…</p>
-  <ul id="memory-list">
+  <header>
+    <h1>岁月涟漪</h1>
+    <span class="header-sub">Ripples of Aion · 记忆图谱</span>
+  </header>
+  <p id="stats"><span class="pill">加载中…</span></p>
+
+  <h2>实体时间轴</h2>
+  <div id="claim-list" class="card"><div class="entity-block"><div class="attr-line empty">加载中…</div></div></div>
+
+  <h2>最近记忆</h2>
+  <ul id="memory-list" class="card">
     <li class="empty">加载中…</li>
   </ul>
+
+  <footer>岁月无声，涟漪有痕</footer>
   <script src="./panel.js"></script>
 </body>
 </html>

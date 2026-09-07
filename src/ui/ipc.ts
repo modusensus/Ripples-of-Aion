@@ -19,14 +19,24 @@ interface PanelMemory {
   createdAt: number;
 }
 
+/** get-state 返回的单条时间轴声明（已拍平，面板直接渲染）。 */
+interface PanelClaim {
+  entity: string;
+  attribute: string;
+  value: string;
+  validFrom: number;
+  validUntil: number | null;
+}
+
 interface PanelState {
   total: number;
   active: number;
   memories: PanelMemory[];
+  claims: PanelClaim[];
 }
 
 /** 拉取失败/异常时的兜底状态，面板据此显示空态而不是报错弹窗。 */
-const EMPTY_STATE: PanelState = { total: 0, active: 0, memories: [] };
+const EMPTY_STATE: PanelState = { total: 0, active: 0, memories: [], claims: [] };
 
 export interface UiIpcDeps {
   store: MemoryStore;
@@ -47,9 +57,9 @@ export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
       // 读接口依赖内存索引，先确保 JSONL 重放完成。
       await store.load();
       const stats = store.getStats();
+      const activeRecords = store.all({ includeDeleted: false });
       // all() 按时间升序返回活跃记录：取尾部 20 条再反转，即最近 20 条、最新在前。
-      const memories: PanelMemory[] = store
-        .all({ includeDeleted: false })
+      const memories: PanelMemory[] = activeRecords
         .slice(-RECENT_LIMIT)
         .reverse()
         .map((record) => ({
@@ -57,7 +67,20 @@ export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
           content: record.content,
           createdAt: record.createdAt,
         }));
-      return { total: stats.total, active: stats.active, memories };
+      // 活跃记录的全部属性声明拍平送出，面板按实体/属性分组画时间轴。
+      const claims: PanelClaim[] = [];
+      for (const record of activeRecords) {
+        for (const claim of record.entityClaims ?? []) {
+          claims.push({
+            entity: claim.entity,
+            attribute: claim.attribute,
+            value: claim.value,
+            validFrom: claim.validFrom ?? record.createdAt,
+            validUntil: claim.validUntil ?? null,
+          });
+        }
+      }
+      return { total: stats.total, active: stats.active, memories, claims };
     } catch (err) {
       log.warn("get-state 失败，返回空状态：", err);
       return EMPTY_STATE;

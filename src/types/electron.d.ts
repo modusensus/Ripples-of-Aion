@@ -10,6 +10,8 @@ declare module "electron" {
     height?: number;
     title?: string;
     autoHideMenuBar?: boolean;
+    /** 窗口底色，避免面板加载前闪黑。 */
+    backgroundColor?: string;
     webPreferences?: {
       nodeIntegration?: boolean;
       contextIsolation?: boolean;

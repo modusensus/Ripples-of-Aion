@@ -83,6 +83,7 @@ export function createWindowManager(deps: WindowManagerDeps): WindowManager {
         height: WINDOW_HEIGHT,
         title: WINDOW_TITLE,
         autoHideMenuBar: true,
+        backgroundColor: "#fff8fb",
         // 面板加载的是随插件分发的受信静态页，panel.js 需要直接使用 ipcRenderer。
         webPreferences: { nodeIntegration: true, contextIsolation: false },
       });
