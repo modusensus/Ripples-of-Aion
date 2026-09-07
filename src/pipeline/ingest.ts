@@ -8,7 +8,7 @@ import { remember } from "../core/remember";
 import type { Embedder, IngestTask, MemoryRecord } from "../core/types";
 import type { MemoryStore } from "../core/store";
 import type { Logger } from "../logger";
-import { extractFacts } from "./extractor";
+import { extractTurn } from "./extractor";
 
 /** createTurnIngestor 的依赖。 */
 export interface TurnIngestorDeps {
@@ -52,7 +52,8 @@ async function readFrozenRange(
 }
 
 /**
- * 创建 turn 摄入器：读冻结范围 -> 抽取事实 -> 可选向量化 -> 逐条 remember 收口写入。
+ * 创建 turn 摄入器：读冻结范围 -> 抽取事实与属性声明 -> 可选向量化 ->
+ * 逐条 remember 收口写入（claims 挂到各自来源事实的记录上）。
  * 一轮允许多条事实，每条一个记忆记录（利于检索精度和实体时间轴）；
  * 同轮重复摄入由 remember 的「轮次+内容」去重拦截。
  * 任何一步失败只 warn，绝不抛出；signal 中止时尽快安静退出。
@@ -66,7 +67,7 @@ export function createTurnIngestor(deps: TurnIngestorDeps): TurnIngestHandler {
       const messages = await readFrozenRange(conversations, task, signal);
       if (messages.length === 0 || signal?.aborted) return;
 
-      const facts = await extractFacts(llm, messages, {
+      const { facts, claims } = await extractTurn(llm, messages, {
         maxFacts: config.maxMemoriesPerTurn,
         log,
         signal,
@@ -82,9 +83,10 @@ export function createTurnIngestor(deps: TurnIngestorDeps): TurnIngestHandler {
 
       for (let i = 0; i < facts.length; i += 1) {
         if (signal?.aborted) return;
+        const createdAt = Date.now();
         const record: MemoryRecord = {
           id: "",
-          createdAt: Date.now(),
+          createdAt,
           content: facts[i],
           turn: {
             conversationId: task.conversationId,
@@ -95,6 +97,18 @@ export function createTurnIngestor(deps: TurnIngestorDeps): TurnIngestHandler {
           embedding: vectors?.[i],
           embeddingModel: vectors ? embedder.id : undefined,
         };
+        // 来源是本条事实的声明挂到本条记录上；validFrom 用摄入时间
+        //（LLM 报的时间不可靠，一律以入库时间为准）。
+        const factClaims = claims
+          .filter((claim) => claim.factIndex === i)
+          .map((claim) => ({
+            entity: claim.entity,
+            attribute: claim.attribute,
+            value: claim.value,
+            validFrom: createdAt,
+            validUntil: null as number | null,
+          }));
+        if (factClaims.length > 0) record.entityClaims = factClaims;
         // remember 内部已完成内容哈希去重和失败降级，返回 false 不需要额外告警。
         await remember(store, record, log);
       }

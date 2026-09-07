@@ -21,20 +21,21 @@ Within that model, this plugin is designed to minimize its own exposure:
 
 | Version | Supported | Status |
 |---|---|---|
-| 0.1.x | ✅ Yes | Active development |
+| 0.2.x | ✅ Yes | Active development |
+| 0.1.x | ❌ No | Superseded by 0.2.x |
 | < 0.1.0 | — | No earlier releases exist |
 
 ---
 
 ## Known Security Features
 
-Implemented and maintained as of 0.1.0:
+Implemented and maintained as of 0.2.0:
 
 | Feature | Description | Status |
 |---|---|---|
 | Zero runtime dependencies | The bundle uses only Node builtins, global `fetch`, and host-injected services — no third-party runtime supply chain | ✅ Implemented |
 | Local-first by default | `embeddingProvider: "none"` (default) means every code path is offline; no telemetry, no analytics, no remote logging anywhere | ✅ Implemented |
-| Disclosed opt-in network surface | Enabling `openai-compatible` embeddings sends **fact texts and query text** to the endpoint *you* configure. This is the plugin's only outbound channel. Point it at a local endpoint to stay fully offline | ✅ Documented |
+| Disclosed opt-in network surface | Enabling `openai-compatible` embeddings sends **fact texts, entity-claim fields, and query text** to the endpoint *you* configure. This is the plugin's only outbound channel. Point it at a local endpoint to stay fully offline | ✅ Documented |
 | Secrets via host secure store | The embedding API key lives in the host secure store (`ctx.deps.secrets`); it is never hardcoded, never written to plugin storage, never logged | ✅ Implemented |
 | Append-only journal storage | `memories.jsonl` is append-only; a crash loses at most the last line, malformed lines are skipped with a warning instead of corrupting the store | ✅ Implemented |
 | Replay-resistant writes | All writes pass one gate (`remember()`) keyed by content hash — duplicate event delivery cannot produce duplicate memories | ✅ Implemented |
@@ -191,20 +192,21 @@ Cyrene 插件运行在 **Electron 主进程中，拥有完整 Node.js 权限**�
 
 | 版本 | 支持状态 | 说明 |
 |---|---|---|
-| 0.1.x | ✅ 支持 | 活跃开发中 |
+| 0.2.x | ✅ 支持 | 活跃开发中 |
+| 0.1.x | ❌ 不支持 | 已被 0.2.x 取代 |
 | < 0.1.0 | — | 无更早版本 |
 
 ---
 
 ## 已知安全特性
 
-截至 0.1.0 已实现并维护：
+截至 0.2.0 已实现并维护：
 
 | 特性 | 描述 | 状态 |
 |---|---|---|
 | 零运行时依赖 | 产物只用 Node 内置模块、全局 `fetch` 和宿主注入的服务——没有第三方运行时供应链 | ✅ 已实现 |
 | 默认本地优先 | `embeddingProvider: "none"`（默认）意味着所有代码路径离线；任何地方都无遥测、无分析、无远程日志 | ✅ 已实现 |
-| 明示的 opt-in 网络面 | 启用 `openai-compatible` embeddings 后，**事实文本与查询文本**会发送到*你自己*配置的端点。这是本插件唯一的出站通道；指向本地端点即可完全离线 | ✅ 已明示 |
+| 明示的 opt-in 网络面 | 启用 `openai-compatible` embeddings 后，**事实文本、实体属性字段与查询文本**会发送到*你自己*配置的端点。这是本插件唯一的出站通道；指向本地端点即可完全离线 | ✅ 已明示 |
 | 密钥走宿主安全存储 | embedding API key 存在宿主安全存储（`ctx.deps.secrets`）；绝不硬编码、绝不写入插件存储、绝不进日志 | ✅ 已实现 |
 | 追加日志式存储 | `memories.jsonl` 只追加；崩溃最多丢最后一行，坏行 warn 跳过而非损坏整库 | ✅ 已实现 |
 | 抗重放写入 | 所有写入经过唯一收口 `remember()`（内容哈希键）——事件重复投递不会产生重复记忆 | ✅ 已实现 |

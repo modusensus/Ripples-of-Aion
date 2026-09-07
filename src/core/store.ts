@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { PluginStorage } from "@playa0v0/cyrene-plugin-sdk";
 import type { Logger } from "../logger";
 import { appendJsonl, readJsonl } from "../util/jsonl";
-import type { MemoryId, MemoryRecord } from "./types";
+import type { EntityClaim, MemoryId, MemoryRecord } from "./types";
 
 /**
  * 记录级去重键：内容哈希（saveWithDedupe 方案）。
@@ -31,6 +31,12 @@ export interface MemoryStats {
 export interface AllOptions {
   includeDeleted?: boolean;
   conversationId?: string;
+}
+
+/** 实体时间轴条目：一条 claim 加上承载它的记录。 */
+export interface ClaimEntry {
+  record: MemoryRecord;
+  claim: EntityClaim;
 }
 
 /**
@@ -120,6 +126,8 @@ export class MemoryStore {
   /**
    * 追加一条记忆（put op）。id / createdAt 缺失时自动补齐；
    * conversationId 缺失时从 turn 反规范化兜底。
+   * 带 entityClaims 时先归一化并去掉与既有活跃 claim 完全相同的条目
+   * （重述同一属性不制造时间轴噪音），落盘后再闭合旧的活跃 claim。
    * 返回是否成功落盘；失败已 warn，不抛异常。
    */
   async append(record: MemoryRecord): Promise<boolean> {
@@ -128,6 +136,20 @@ export class MemoryStore {
     if (typeof record.createdAt !== "number") record.createdAt = Date.now();
     if (!record.conversationId && record.turn?.conversationId) {
       record.conversationId = record.turn.conversationId;
+    }
+    if (record.entityClaims?.length) {
+      for (const claim of record.entityClaims) {
+        if (typeof claim.validFrom !== "number") claim.validFrom = record.createdAt;
+        if (claim.validUntil === undefined) claim.validUntil = null;
+      }
+      const fresh = record.entityClaims.filter(
+        (claim) => !this.hasActiveClaim(claim.entity, claim.attribute, claim.value),
+      );
+      if (fresh.length === 0) {
+        delete record.entityClaims;
+      } else {
+        record.entityClaims = fresh;
+      }
     }
     try {
       await appendJsonl(this.filePath, { op: "put", record } satisfies JournalOp);
@@ -141,7 +163,74 @@ export class MemoryStore {
     if (dedupKey) this.byDedupKey.set(dedupKey, record);
     const turnEventId = record.turn?.turnEventId;
     if (turnEventId) this.turnEventIds.add(turnEventId);
+    // 闭合属于已有记录的更新而非新记忆写入，且绝不能影响已落盘的新记录
+    await this.closeConflictingClaims(record);
     return true;
+  }
+
+  /** 是否存在同 (entity, attribute, value) 且仍活跃的 claim（软删记录不算）。 */
+  private hasActiveClaim(entity: string, attribute: string, value: string): boolean {
+    for (const existing of this.byId.values()) {
+      if (existing.deleted || !existing.entityClaims?.length) continue;
+      for (const claim of existing.entityClaims) {
+        if (
+          claim.entity === entity
+          && claim.attribute === attribute
+          && claim.value === value
+          && claim.validUntil == null
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 属性时间轴闭合：新记录的每条 claim 会把同 (entity, attribute) 的
+   * 旧活跃 claim 的 validUntil 置为新记录的 createdAt。
+   * 更新已有记录 = 追加一个 put op（重放时同 id 覆盖）；失败只 warn，
+   * 时间轴查询按「最新者为准」兜底，绝不因此抛异常或回滚新记录。
+   */
+  private async closeConflictingClaims(record: MemoryRecord): Promise<void> {
+    const newClaims = record.entityClaims;
+    if (!newClaims?.length) return;
+    // 先收集闭合目标，同一旧记录的多条冲突 claim 合并成一次落盘
+    const targets = new Map<MemoryId, { record: MemoryRecord; indexes: Set<number> }>();
+    for (const existing of this.byId.values()) {
+      if (existing.deleted || existing.id === record.id) continue;
+      if (!existing.entityClaims?.length) continue;
+      for (let i = 0; i < existing.entityClaims.length; i += 1) {
+        const claim = existing.entityClaims[i];
+        if (claim.validUntil != null) continue;
+        const conflicted = newClaims.some(
+          (c) => c.entity === claim.entity && c.attribute === claim.attribute,
+        );
+        if (!conflicted) continue;
+        let target = targets.get(existing.id);
+        if (!target) {
+          target = { record: existing, indexes: new Set<number>() };
+          targets.set(existing.id, target);
+        }
+        target.indexes.add(i);
+      }
+    }
+    for (const { record: oldRecord, indexes } of targets.values()) {
+      const closedClaims = oldRecord.entityClaims!.map((claim, i) =>
+        indexes.has(i) && claim.validUntil == null
+          ? { ...claim, validUntil: record.createdAt }
+          : claim,
+      );
+      const updated: MemoryRecord = { ...oldRecord, entityClaims: closedClaims };
+      try {
+        await appendJsonl(this.filePath, { op: "put", record: updated } satisfies JournalOp);
+      } catch (err) {
+        this.log.warn("闭合旧属性声明失败:", oldRecord.id, err);
+        continue;
+      }
+      // Map.set 已有键不改变插入顺序，时间序保持稳定
+      this.byId.set(oldRecord.id, updated);
+    }
   }
 
   /** 追加删除标记（del op），并把内存中的记录标记为软删。 */
@@ -209,6 +298,29 @@ export class MemoryStore {
       (a, b) => b.score - a.score || b.record.createdAt - a.record.createdAt,
     );
     return hits.map((hit) => hit.record);
+  }
+
+  /**
+   * 实体属性时间轴：按 validFrom 升序返回该实体（可选限定单一属性）的
+   * 全部 claim。只含未软删记录；某属性的「当前值」由调用方取时间序
+   * 最新一条判断 validUntil 是否为空——这样即使闭合落盘失败过，
+   * 查询侧也能容忍「多条同时活跃」的脏状态。
+   */
+  getEntityTimeline(entity: string, attribute?: string): ClaimEntry[] {
+    const entries: ClaimEntry[] = [];
+    for (const record of this.byId.values()) {
+      if (record.deleted || !record.entityClaims?.length) continue;
+      for (const claim of record.entityClaims) {
+        if (claim.entity !== entity) continue;
+        if (attribute !== undefined && claim.attribute !== attribute) continue;
+        entries.push({ record, claim });
+      }
+    }
+    entries.sort(
+      (a, b) =>
+        (a.claim.validFrom ?? a.record.createdAt) - (b.claim.validFrom ?? b.record.createdAt),
+    );
+    return entries;
   }
 
   /** 统计信息：total 含已软删，active 不含；byConversation 只统计活跃记录。 */

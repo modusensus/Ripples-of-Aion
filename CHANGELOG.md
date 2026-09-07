@@ -3,6 +3,28 @@
 本插件遵循 [SemVer](https://semver.org/lang/zh-CN/)。版本号三段式由 `manifest.json`
 与 `package.json` 同步维护——发布前跑 `npm run check-sync` 防止产物静默失效。
 
+## [0.2.0] - 2026-09-07
+
+### 新增
+
+- 实体抽取：turn 摄入时 LLM 同时抽取事实与「会随时间变化的属性」声明
+  （`entityClaims`），每条声明挂到其来源事实的记录上，`validFrom` 取摄入时间；
+  旧格式纯数组输出照常兼容，解析器对栅栏/夹带文字/坏 claim 逐条容错
+- 属性时间轴闭合：新 claim 写入时自动把同 (entity, attribute) 的旧活跃 claim
+  的 `validUntil` 闭合为新记录的 `createdAt`（追加 put op 更新，重放保持一致）；
+  闭合失败只 warn，查询侧按「最新者为准」兜底，绝不影响新记录落盘
+- 时间轴去噪：与既有活跃 claim 完全相同（entity/attribute/value）的新声明
+  不入库不闭合，重述同一属性不制造时间轴噪音；软删记录的 claim 不参与闭合
+- 第 4 个 AI 工具 `suiyue-lianyi_timeline`（实体时间轴）：按实体（可选限定属性）
+  查询属性变更史，当前值在前、历史在后，闭环失败等脏状态如实展示
+- 测试 26 → 41 用例：新增 `tests/extractor.test.ts`（6），store/pipeline/tools
+  分别 +4/+2/+3，契约测试同步 4 工具
+
+### 兼容性
+
+- `MemoryRecord.entityClaims` 自 v0.1.0 预留后正式启用；旧库数据无需迁移，
+  无 claims 的记录行为完全不变
+
 ## [0.1.0] - 2026-09-07
 
 ### 新增

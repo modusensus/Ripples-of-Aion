@@ -22,11 +22,11 @@ suiyue-lianyi/
 │   ├── core/             # memory model, JSONL store, remember() write gate
 │   ├── pipeline/         # task queue, turn ingest, LLM extraction, embedder factory
 │   ├── retrieval/        # hybrid search, rerank
-│   ├── tools/            # suiyue-lianyi_recall / search / forget
+│   ├── tools/            # suiyue-lianyi_recall / search / timeline / forget
 │   ├── provider/         # hot-context prompt provider
 │   ├── ui/               # graph window, private IPC, panel
 │   └── index.ts          # register / unregister / open
-├── tests/                # vitest suite (5 suites / 26 cases)
+├── tests/                # vitest suite (6 suites / 41 cases)
 ├── scripts/              # build.mjs / check-sync.mjs / deploy.mjs
 └── dist/                 # build output (gitignored, never hand-edited)
 ```
@@ -153,11 +153,11 @@ suiyue-lianyi/
 │   ├── core/             # 记忆模型、JSONL 存储、remember() 写入收口
 │   ├── pipeline/         # 任务队列、turn 摄入、LLM 抽取、embedding 工厂
 │   ├── retrieval/        # 混合检索、rerank
-│   ├── tools/            # suiyue-lianyi_recall / search / forget
+│   ├── tools/            # suiyue-lianyi_recall / search / timeline / forget
 │   ├── provider/         # hot-context prompt provider
 │   ├── ui/               # 图谱窗口、私有 IPC、面板
 │   └── index.ts          # register / unregister / open
-├── tests/                # vitest 测试（5 套件 / 26 用例）
+├── tests/                # vitest 测试（6 套件 / 41 用例）
 ├── scripts/              # build.mjs / check-sync.mjs / deploy.mjs
 └── dist/                 # 构建产物（gitignore，禁止手改）
 ```

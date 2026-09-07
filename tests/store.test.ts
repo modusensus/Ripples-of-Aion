@@ -99,4 +99,83 @@ describe("MemoryStore", () => {
   it("dedupKeyOf 对空内容返回 undefined", () => {
     expect(dedupKeyOf(makeRecord(""))).toBeUndefined();
   });
+
+  it("新 claim 闭合同实体同属性的旧活跃 claim：validUntil 置为新记录 createdAt，重放后保持", async () => {
+    const store = new MemoryStore(storage.storage, silentLog);
+    await remember(store, {
+      id: "", createdAt: 1000, content: "用户住在北京",
+      entityClaims: [{ entity: "用户", attribute: "居住地", value: "北京", validFrom: 1000, validUntil: null }],
+    }, silentLog);
+    await remember(store, {
+      id: "", createdAt: 2000, content: "用户搬到上海了",
+      entityClaims: [{ entity: "用户", attribute: "居住地", value: "上海", validFrom: 2000, validUntil: null }],
+    }, silentLog);
+
+    const timeline = store.getEntityTimeline("用户");
+    expect(timeline).toHaveLength(2);
+    expect(timeline[0].claim.value).toBe("北京");
+    expect(timeline[0].claim.validUntil).toBe(2000);
+    expect(timeline[1].claim.value).toBe("上海");
+    expect(timeline[1].claim.validUntil).toBeNull();
+
+    // 闭合结果已落盘：新实例重放后时间轴一致
+    const reloaded = new MemoryStore(storage.storage, silentLog);
+    await reloaded.load();
+    const replayed = reloaded.getEntityTimeline("用户");
+    expect(replayed[0].claim.validUntil).toBe(2000);
+    expect(replayed[1].claim.validUntil).toBeNull();
+  });
+
+  it("不同属性、不同实体互不闭合", async () => {
+    const store = new MemoryStore(storage.storage, silentLog);
+    await remember(store, {
+      id: "", createdAt: 1000, content: "用户住在北京",
+      entityClaims: [{ entity: "用户", attribute: "居住地", value: "北京", validFrom: 1000, validUntil: null }],
+    }, silentLog);
+    await remember(store, {
+      id: "", createdAt: 2000, content: "用户在准备考试",
+      entityClaims: [
+        { entity: "用户", attribute: "目标", value: "期末考试", validFrom: 2000, validUntil: null },
+        { entity: "月饼", attribute: "居住地", value: "上海", validFrom: 2000, validUntil: null },
+      ],
+    }, silentLog);
+
+    expect(store.getEntityTimeline("用户", "居住地")[0].claim.validUntil).toBeNull();
+    expect(store.getEntityTimeline("用户", "目标")).toHaveLength(1);
+    expect(store.getEntityTimeline("月饼", "居住地")).toHaveLength(1);
+  });
+
+  it("与既有活跃 claim 完全相同（entity/attribute/value）时，新记录不挂重复 claim", async () => {
+    const store = new MemoryStore(storage.storage, silentLog);
+    await remember(store, {
+      id: "", createdAt: 1000, content: "用户住在北京",
+      entityClaims: [{ entity: "用户", attribute: "居住地", value: "北京", validFrom: 1000, validUntil: null }],
+    }, silentLog);
+    await remember(store, {
+      id: "", createdAt: 2000, content: "我现在还是住在北京",
+      entityClaims: [{ entity: "用户", attribute: "居住地", value: "北京", validFrom: 2000, validUntil: null }],
+    }, silentLog);
+
+    const [, second] = store.all();
+    expect(second.entityClaims).toBeUndefined();
+    expect(store.getEntityTimeline("用户")).toHaveLength(1);
+    expect(store.getEntityTimeline("用户")[0].claim.validFrom).toBe(1000);
+  });
+
+  it("软删记录的 claim 不参与闭合也不出现在时间轴", async () => {
+    const store = new MemoryStore(storage.storage, silentLog);
+    await remember(store, {
+      id: "", createdAt: 1000, content: "用户住在北京",
+      entityClaims: [{ entity: "用户", attribute: "居住地", value: "北京", validFrom: 1000, validUntil: null }],
+    }, silentLog);
+    const [first] = store.all();
+    await store.delete(first.id);
+    await remember(store, {
+      id: "", createdAt: 2000, content: "用户搬到上海了",
+      entityClaims: [{ entity: "用户", attribute: "居住地", value: "上海", validFrom: 2000, validUntil: null }],
+    }, silentLog);
+
+    expect(store.getEntityTimeline("用户")).toHaveLength(1);
+    expect(store.getEntityTimeline("用户")[0].claim.value).toBe("上海");
+  });
 });

@@ -5,9 +5,9 @@
 <h1 align="center">⏳ 岁月涟漪 · Ripples of Aion</h1>
 
 <p align="center">
-  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.1.0-ff69b4?style=flat-square" alt="version"></a>
+  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.2.0-ff69b4?style=flat-square" alt="version"></a>
   <a href="https://github.com/modusensus/Ripples-of-Aion/actions"><img src="https://img.shields.io/github/actions/workflow/status/modusensus/Ripples-of-Aion/test.yml?style=flat-square&label=CI" alt="CI"></a>
-  <img src="https://img.shields.io/badge/tests-26%20passed-ff69b4?style=flat-square" alt="tests">
+  <img src="https://img.shields.io/badge/tests-41%20passed-ff69b4?style=flat-square" alt="tests">
   <a href="https://codecov.io/gh/modusensus/Ripples-of-Aion"><img src="https://img.shields.io/codecov/c/github/modusensus/Ripples-of-Aion/main?style=flat-square&color=ff69b4&label=coverage" alt="coverage"></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-ff69b4?style=flat-square&logo=typescript&logoColor=white" alt="typescript">
   <img src="https://img.shields.io/badge/node-22%2B-ff69b4?style=flat-square&logo=nodedotjs&logoColor=white" alt="node">
@@ -35,11 +35,12 @@ Cyrene 的内置记忆（DMAE / 实体图谱 / RAG）不对插件开放写入，
 |------|-------------|-------------|
 | 周一提过在准备考试，周四再聊 | 只能靠内置 L0/L2 碰运气 | 「你上周说每天复习到很晚，调整过来了吗？」 |
 | 同一件事反复聊了十次 | 每次都可能重复入库 | 内容哈希去重，完全相同的事实只存一份 |
-| 想知道「你对 X 的说法什么时候变过」 | 内置图谱只有 mentionCount | 实体属性时间轴 `valid_until`（规划中） |
+| 想知道「你对 X 的说法什么时候变过」 | 内置图谱只有 mentionCount | 实体属性时间轴 `valid_until`：属性变更自动闭合旧值 |
 
 ## ✨ 核心特性
 
 - **逐事实沉淀** — 每轮对话由 LLM 抽取 0~N 条事实，每条独立成记忆记录，利于检索精度与时间轴
+- **实体时间轴** — 抽取「会随时间变化的属性」声明（居住地、职业、宠物……），新值写入自动闭合旧值的 `valid_until`，「实体时间轴」工具可查任意属性的变更史
 - **写入单收口** — 所有写入走唯一 `remember()`，内容哈希去重，事件重放不产生重复
 - **混合检索** — 关键词召回打底 + 可选向量重排，权重向量 1.0 > 关键词 0.7；未配 embedding 自动降级纯关键词
 - **fail-safe** — 抽取/向量化/存储任何一步失败只 warn 降级，绝不拖累聊天主流程
@@ -77,10 +78,11 @@ npm run deploy
 
 | 套件 | 用例 | 覆盖内容 |
 | --- | --- | --- |
-| `tests/store.test.ts` | 7 | JSONL 重放恢复、内容哈希去重、软删隔离、轮次永久标记、关键词排序、统计、空内容边界 |
+| `tests/store.test.ts` | 11 | JSONL 重放恢复、内容哈希去重、软删隔离、轮次永久标记、关键词排序、统计、空内容边界、时间轴闭合/去噪/软删隔离/重放持久 |
 | `tests/queue.test.ts` | 5 | 串行顺序、抛错不阻塞、signal 中止丢弃排队、signal 透传、已中止入队放行 |
-| `tests/pipeline.test.ts` | 5 | 逐事实入库带溯源、同轮重复摄入去重、坏 LLM 输出跳过、空消息边界、队列串行摄入 |
-| `tests/tools.test.ts` | 6 | 工具空态与降级提示、hybrid 排序/过滤语义、直通精排、hot-context 预算注入与中止 |
+| `tests/pipeline.test.ts` | 7 | 逐事实入库带溯源、同轮重复摄入去重、坏 LLM 输出跳过、空消息边界、队列串行摄入、claims 挂载对应事实、旧格式无 claims |
+| `tests/extractor.test.ts` | 6 | 对象格式解析、旧格式兼容、栅栏/夹带文字容忍、坏 claim 逐条丢弃、claims 上限截断、完全不可解析 |
+| `tests/tools.test.ts` | 9 | 工具空态与降级提示、hybrid 排序/过滤语义、直通精排、hot-context 预算注入与中止、时间轴当前值/历史/属性过滤 |
 | `tests/contract.test.ts` | 3 | 产物契约（工具前缀/provider/IPC/订阅/dispose）、recall 空态、unregister 幂等 |
 
 ```bash
@@ -108,7 +110,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 | 版本 | 主题 | 状态 |
 |------|------|------|
 | **v0.1.0** | 骨架 + 最小纵切：写入收口 / 混合检索 / 注入 / 三工具 / 窗口 / CI | ✅ |
-| **v0.2.0** | 实体抽取 + `valid_until` 属性时间轴（差异化核心） | 🚧 |
+| **v0.2.0** | 实体抽取 + `valid_until` 属性时间轴（差异化核心） | ✅ |
 | **v0.3.0** | heat 热度衰减 | 🚧 |
 | **v0.4.0** | autoDream 空闲整合（聚类 + 冲突标记 + 启动补跑） | 🚧 |
 | **v0.5.0** | LLM rerank 精排 + 图谱窗口可视化增强 | 🚧 |
@@ -118,7 +120,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 26 个测试
+npm test           # 41 个测试
 npm run build
 npm run deploy     # 构建并安装到本机 Cyrene
 ```
@@ -145,11 +147,12 @@ Cyrene's built-in memory (DMAE / entity graph / RAG) is not writable by plugins,
 |------|-------------|-------------|
 | You mention exam prep on Monday, chat again on Thursday | Built-in L0/L2 recall is hit-or-miss | "You said last week you were studying late — is that any better now?" |
 | The same topic comes up ten times | Every occurrence may be stored again | Content-hash dedup: identical facts are stored exactly once |
-| "When did your answer about X change?" | Built-in graph only has mentionCount | Entity attribute timeline with `valid_until` (planned) |
+| "When did your answer about X change?" | Built-in graph only has mentionCount | Entity attribute timeline with `valid_until`: old values auto-close when a new one lands |
 
 ## ✨ Core Features
 
 - **Per-fact records** — each turn yields 0~N LLM-extracted facts, each stored as an independent memory record for retrieval precision and timelines
+- **Entity timelines** — claims about *time-varying* attributes (residence, job, pets…) are extracted alongside facts; writing a new value auto-closes the old one's `valid_until`, and the timeline tool answers "what changed, and when"
 - **Single write gate** — every write goes through one `remember()` with content-hash dedup; event replays produce no duplicates
 - **Hybrid retrieval** — keyword recall as the floor + optional vector rerank, weighted vector 1.0 > keyword 0.7; degrades to keyword-only when embeddings are unconfigured
 - **Fail-safe** — extraction, embedding, and storage failures only warn and degrade; the chat flow is never blocked
@@ -187,10 +190,11 @@ Tests run on vitest; the contract suite **loads the built artifact directly** �
 
 | Suite | Cases | Coverage |
 | --- | --- | --- |
-| `tests/store.test.ts` | 7 | JSONL replay, content-hash dedup, soft-delete isolation, permanent turn markers, keyword ranking, stats, empty-content edge |
+| `tests/store.test.ts` | 11 | JSONL replay, content-hash dedup, soft-delete isolation, permanent turn markers, keyword ranking, stats, empty-content edge, timeline close/dedupe/soft-delete/persistence |
 | `tests/queue.test.ts` | 5 | Serial order, error isolation, abort drops pending, signal passthrough, enqueue-after-abort |
-| `tests/pipeline.test.ts` | 5 | Per-fact ingestion with provenance, duplicate-turn dedup, malformed LLM output skip, empty-message edge, queued serial ingestion |
-| `tests/tools.test.ts` | 6 | Tool empty-state fallbacks, hybrid ranking/filter semantics, passthrough rerank, hot-context budget injection and abort |
+| `tests/pipeline.test.ts` | 7 | Per-fact ingestion with provenance, duplicate-turn dedup, malformed LLM output skip, empty-message edge, queued serial ingestion, claim attachment, legacy format without claims |
+| `tests/extractor.test.ts` | 6 | Object-format parsing, legacy array compat, fence/prose tolerance, per-claim rejection, claim cap, fully unparseable input |
+| `tests/tools.test.ts` | 9 | Tool empty-state fallbacks, hybrid ranking/filter semantics, passthrough rerank, hot-context budget injection and abort, timeline current/history/attribute filter |
 | `tests/contract.test.ts` | 3 | Artifact contract (tool prefix / provider / IPC / subscription / dispose), recall empty state, unregister idempotency |
 
 ```bash
@@ -214,7 +218,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 | Version | Theme | Status |
 |------|------|------|
 | **v0.1.0** | Skeleton + minimal vertical slice: write gate / hybrid retrieval / injection / three tools / window / CI | ✅ |
-| **v0.2.0** | Entity extraction + `valid_until` attribute timeline (the differentiator) | 🚧 |
+| **v0.2.0** | Entity extraction + `valid_until` attribute timeline (the differentiator) | ✅ |
 | **v0.3.0** | heat decay | 🚧 |
 | **v0.4.0** | autoDream idle consolidation (clustering + conflict marking + catch-up on boot) | 🚧 |
 | **v0.5.0** | LLM rerank + graph window visualization | 🚧 |
@@ -224,7 +228,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 26 tests
+npm test           # 41 tests
 npm run build
 npm run deploy     # build + install into local Cyrene
 ```

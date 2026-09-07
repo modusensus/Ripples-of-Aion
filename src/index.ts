@@ -8,6 +8,7 @@ import { createEmbedderByProvider } from "./pipeline/embedder";
 import { createHotContextProvider } from "./provider/hot-context";
 import { createRecallTool } from "./tools/recall";
 import { createSearchTool } from "./tools/search";
+import { createTimelineTool } from "./tools/timeline";
 import { createForgetTool } from "./tools/forget";
 import { createWindowManager, type WindowManager } from "./ui/window";
 import { registerUiIpc } from "./ui/ipc";
@@ -33,9 +34,10 @@ const plugin: CyrenePlugin = {
     // embedding 工厂：未配置时返回恒 null 的降级 embedder（纯关键词检索）
     const embedder = createEmbedderByProvider(config, { secrets: ctx.deps.secrets, log });
 
-    // 三个 AI 工具
+    // 四个 AI 工具
     ctx.registerTool(createRecallTool({ store, log }));
     ctx.registerTool(createSearchTool({ store, config, embedder, log }));
+    ctx.registerTool(createTimelineTool({ store, log }));
     ctx.registerTool(createForgetTool({ store, log }));
 
     // 热记忆注入 provider

@@ -5,25 +5,48 @@ import type {
 } from "@playa0v0/cyrene-plugin-sdk";
 import type { Logger } from "../logger";
 
-/** extractFacts 的选项。 */
-export interface ExtractFactsOptions {
+/** extractTurn 的选项。 */
+export interface ExtractTurnOptions {
   /** 单轮最多抽取的事实条数。 */
   maxFacts: number;
   log: Logger;
   signal?: AbortSignal;
 }
 
+/** 一条待入库的实体属性声明：factIndex 指向本轮 facts 数组的下标。 */
+export interface ExtractedClaim {
+  entity: string;
+  attribute: string;
+  value: string;
+  factIndex: number;
+}
+
+/** 单轮抽取结果：facts 是检索主体，claims 是附加在对应事实上的结构化时间轴声明。 */
+export interface ExtractedTurn {
+  facts: string[];
+  claims: ExtractedClaim[];
+}
+
+const EMPTY_TURN: ExtractedTurn = { facts: [], claims: [] };
+
 /** 超长对话截断，避免无谓的 token 消耗；事实抽取不要求完整原文。 */
 const MAX_TRANSCRIPT_CHARS = 16_000;
 
+/** 单轮最多接受的属性声明条数：超出部分直接丢弃，防止模型刷屏。 */
+const MAX_CLAIMS_PER_TURN = 8;
+
+/** claim 单个字段的最大长度；LLM 派生字段一律先截断再入库。 */
+const CLAIM_FIELD_MAX_CHARS = 80;
+
 function buildSystemPrompt(maxFacts: number): string {
   return [
-    "你是对话记忆抽取器。从对话中找出值得长期记住的事实，供日后回忆使用。",
+    "你是对话记忆抽取器。从对话中找出值得长期记住的事实，以及其中会随时间变化的实体属性，供日后回忆和时间轴查询使用。",
     "要求：",
-    "- 只保留稳定、可复用的信息（身份、偏好、项目、约定、结论、重要背景），忽略寒暄和一次性过程。",
-    `- 每条改写成独立自包含的第三人称陈述句，脱离上下文也能读懂，最多 ${maxFacts} 条。`,
-    "- 没有值得记的内容就输出空数组。",
-    '- 只输出一个 JSON 字符串数组，例如 ["..."]，不要任何解释或 Markdown。',
+    "- facts：只保留稳定、可复用的信息（身份、偏好、项目、约定、结论、重要背景），忽略寒暄和一次性过程。",
+    `- 每条 facts 改写成独立自包含的第三人称陈述句，脱离上下文也能读懂，最多 ${maxFacts} 条；没有值得记的就输出空数组。`,
+    "- claims：从 facts 里挑出「会随时间变化的属性」的当前值，例如居住地、职业、正在做的事、养了什么宠物、关系状态；不随时间变化的稳定属性（姓名、生日等）不要写。",
+    '- 每条 claim 是一个对象：entity 是属性所属的主体名（如「用户」「月饼」），attribute 是属性名（如「居住地」），value 是当前值，fact 是该 claim 来源事实在 facts 数组中的下标（从 0 开始）。最多 8 条；没有就输出空数组。',
+    '- 只输出一个 JSON 对象，格式：{"facts": ["..."], "claims": [{"entity": "...", "attribute": "...", "value": "...", "fact": 0}]}，不要任何解释或 Markdown。',
   ].join("\n");
 }
 
@@ -35,11 +58,55 @@ function buildTranscript(messages: PluginConversationMessage[]): string {
   return `${transcript.slice(0, MAX_TRANSCRIPT_CHARS)}\n…（后文已截断）`;
 }
 
+/** 清洗 facts：只留非空字符串，截断到 maxFacts。 */
+function sanitizeFacts(raw: unknown[], maxFacts: number): string[] {
+  return raw
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .slice(0, maxFacts);
+}
+
 /**
- * 解析模型输出为事实数组。
- * 返回 null 表示输出无法解析（调用方负责 warn）；合法的空数组原样返回。
+ * 清洗 claims：字段必须是非空字符串、fact 必须指向存在的 facts 下标。
+ * 单条不合格直接丢弃（宁可少存不错存），返回条数不超过 MAX_CLAIMS_PER_TURN。
  */
-function parseFacts(raw: string, maxFacts: number): string[] | null {
+function sanitizeClaims(raw: unknown, factCount: number): ExtractedClaim[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ExtractedClaim[] = [];
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const { entity, attribute, value, fact } = item as Record<string, unknown>;
+    if (typeof entity !== "string" || typeof attribute !== "string" || typeof value !== "string") {
+      continue;
+    }
+    const trimmed = {
+      entity: entity.trim(),
+      attribute: attribute.trim(),
+      value: value.trim(),
+    };
+    if (!trimmed.entity || !trimmed.attribute || !trimmed.value) continue;
+    // 容忍模型把下标写成字符串；越界或缺失一律丢弃
+    const index = typeof fact === "number" ? fact : typeof fact === "string" ? Number(fact) : NaN;
+    if (!Number.isInteger(index) || index < 0 || index >= factCount) continue;
+    out.push({
+      entity: trimmed.entity.slice(0, CLAIM_FIELD_MAX_CHARS),
+      attribute: trimmed.attribute.slice(0, CLAIM_FIELD_MAX_CHARS),
+      value: trimmed.value.slice(0, CLAIM_FIELD_MAX_CHARS),
+      factIndex: index,
+    });
+    if (out.length >= MAX_CLAIMS_PER_TURN) break;
+  }
+  return out;
+}
+
+/**
+ * 解析模型输出为抽取结果。
+ * 返回 null 表示整体无法解析（调用方负责 warn）；claims 逐条清洗，
+ * 单条坏 claim 只丢自己，不影响 facts。
+ * 兼容旧格式（纯字符串数组 = 只有 facts）和模型包栅栏/夹带解释文字的情况。
+ */
+function parseTurn(raw: string, maxFacts: number): ExtractedTurn | null {
   let text = raw.trim();
   if (!text) return null;
   // 容忍模型包一层 Markdown 代码栅栏。
@@ -49,35 +116,48 @@ function parseFacts(raw: string, maxFacts: number): string[] | null {
   try {
     parsed = JSON.parse(text);
   } catch {
-    // 容忍模型在数组前后附加解释文字：截取第一个 JSON 数组再试一次。
-    const bracket = text.match(/\[[\s\S]*\]/);
-    if (!bracket) return null;
-    try {
-      parsed = JSON.parse(bracket[0]);
-    } catch {
-      return null;
+    // 容忍模型在 JSON 前后附加解释文字：优先截取对象，退而截取数组再试。
+    const brace = text.match(/\{[\s\S]*\}/);
+    if (brace) {
+      try {
+        parsed = JSON.parse(brace[0]);
+      } catch {
+        parsed = undefined;
+      }
+    }
+    if (parsed === undefined) {
+      const bracket = text.match(/\[[\s\S]*\]/);
+      if (!bracket) return null;
+      try {
+        parsed = JSON.parse(bracket[0]);
+      } catch {
+        return null;
+      }
     }
   }
-  if (!Array.isArray(parsed)) return null;
-  return parsed
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-    .slice(0, maxFacts);
+  // 旧格式：纯字符串数组，只有 facts
+  if (Array.isArray(parsed)) {
+    return { facts: sanitizeFacts(parsed, maxFacts), claims: [] };
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const obj = parsed as { facts?: unknown; claims?: unknown };
+  if (!Array.isArray(obj.facts)) return null;
+  const facts = sanitizeFacts(obj.facts, maxFacts);
+  return { facts, claims: sanitizeClaims(obj.claims, facts.length) };
 }
 
 /**
- * 让 LLM 从一轮对话中抽取 0~maxFacts 条事实。
- * 任何失败（调用失败、输出无法解析、signal 中止）都 warn 后返回 []，不抛出。
+ * 让 LLM 从一轮对话中抽取 0~maxFacts 条事实和对应的时间轴属性声明。
+ * 任何失败（调用失败、输出无法解析、signal 中止）都 warn 后返回空结果，不抛出。
  */
-export async function extractFacts(
+export async function extractTurn(
   llm: PluginLlmService,
   messages: PluginConversationMessage[],
-  options: ExtractFactsOptions,
-): Promise<string[]> {
+  options: ExtractTurnOptions,
+): Promise<ExtractedTurn> {
   const { maxFacts, log, signal } = options;
-  if (maxFacts <= 0 || messages.length === 0) return [];
-  if (signal?.aborted) return [];
+  if (maxFacts <= 0 || messages.length === 0) return EMPTY_TURN;
+  if (signal?.aborted) return EMPTY_TURN;
 
   const requestMessages: PluginLlmMessage[] = [
     { role: "system", content: buildSystemPrompt(maxFacts) },
@@ -89,16 +169,16 @@ export async function extractFacts(
       signal,
       purpose: "extract-facts",
     });
-    if (signal?.aborted) return [];
-    const facts = parseFacts(raw, maxFacts);
-    if (facts === null) {
+    if (signal?.aborted) return EMPTY_TURN;
+    const turn = parseTurn(raw, maxFacts);
+    if (turn === null) {
       log.warn("事实抽取输出无法解析，本轮跳过:", raw.slice(0, 200));
-      return [];
+      return EMPTY_TURN;
     }
-    if (facts.length === 0) log.log("本轮没有抽取到事实");
-    return facts;
+    if (turn.facts.length === 0) log.log("本轮没有抽取到事实");
+    return turn;
   } catch (err) {
     log.warn("事实抽取失败（降级为不写入）:", err);
-    return [];
+    return EMPTY_TURN;
   }
 }

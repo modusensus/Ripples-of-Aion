@@ -33,18 +33,19 @@ describe("插件契约（构建产物）", () => {
     plugin = loadPlugin();
   });
 
-  it("register 注册 3 个工具 + 1 个 provider + 2 个 IPC + 轮次订阅", async () => {
+  it("register 注册 4 个工具 + 1 个 provider + 2 个 IPC + 轮次订阅", async () => {
     const ctx = createMockContext({ pluginId: PLUGIN_ID, deps: makeDeps() });
     await plugin.register(ctx);
 
     // 工具：前缀 + 契约断言
-    expect(ctx.tools).toHaveLength(3);
+    expect(ctx.tools).toHaveLength(4);
     for (const tool of ctx.tools) {
       assertToolContract(tool, PLUGIN_ID);
     }
     const toolIds = ctx.tools.map((t) => t.id);
     expect(toolIds).toContain(`${PLUGIN_ID}_recall`);
     expect(toolIds).toContain(`${PLUGIN_ID}_search`);
+    expect(toolIds).toContain(`${PLUGIN_ID}_timeline`);
     expect(toolIds).toContain(`${PLUGIN_ID}_forget`);
 
     // provider / IPC / 事件订阅

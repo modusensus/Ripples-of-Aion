@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { PluginConfig } from "../src/config";
 import { createRecallTool } from "../src/tools/recall";
 import { createSearchTool } from "../src/tools/search";
+import { createTimelineTool } from "../src/tools/timeline";
 import { createForgetTool } from "../src/tools/forget";
 import { createHotContextProvider } from "../src/provider/hot-context";
 import { createHybridSearcher } from "../src/retrieval/hybrid";
@@ -129,5 +130,62 @@ describe("工具与检索层（源码级）", () => {
     const aborted = new AbortController();
     aborted.abort();
     expect(await p2.provide({ source: "conversation", mode: "chat", userText: "x", signal: aborted.signal })).toBe("");
+  });
+});
+
+describe("实体时间轴工具", () => {
+  let storage: Awaited<ReturnType<typeof createTempStorage>>;
+
+  beforeEach(async () => {
+    storage = await createTempStorage();
+  });
+
+  afterEach(async () => {
+    await storage.cleanup();
+  });
+
+  /** 两段居住史：北京(t1000) → 上海(t2000)，第二段把第一段闭合。 */
+  async function makeStoreWithResidenceHistory(): Promise<MemoryStore> {
+    const store = new MemoryStore(storage.storage, silentLog);
+    await remember(store, {
+      id: "", createdAt: 1000, content: "用户住在北京",
+      entityClaims: [{ entity: "用户", attribute: "居住地", value: "北京", validFrom: 1000, validUntil: null }],
+    }, silentLog);
+    await remember(store, {
+      id: "", createdAt: 2000, content: "用户搬到上海了",
+      entityClaims: [
+        { entity: "用户", attribute: "居住地", value: "上海", validFrom: 2000, validUntil: null },
+        { entity: "用户", attribute: "职业", value: "学生", validFrom: 2000, validUntil: null },
+      ],
+    }, silentLog);
+    return store;
+  }
+
+  it("entity 缺失或无记录时返回可读提示", async () => {
+    const store = new MemoryStore(storage.storage, silentLog);
+    const tool = createTimelineTool({ store, log: silentLog });
+    expect(await tool.execute({})).toContain("请提供");
+    expect(await tool.execute({ entity: "用户" })).toContain("没有找到实体「用户」");
+    expect(await tool.execute({ entity: "用户", attribute: "职业" })).toContain("没有属性「职业」");
+  });
+
+  it("输出当前值在前、历史在后，闭合时间正确", async () => {
+    const store = await makeStoreWithResidenceHistory();
+    const tool = createTimelineTool({ store, log: silentLog });
+    const out = await tool.execute({ entity: "用户", attribute: "居住地" });
+    expect(out).toContain("共 2 条");
+    expect(out).toMatch(/当前：上海（自 .+）/);
+    expect(out).toMatch(/历史：北京（.+ 至 .+）/);
+    // 上海（新值）出现在北京（旧值）之前
+    expect(out.indexOf("上海")).toBeLessThan(out.indexOf("北京"));
+  });
+
+  it("多属性各自成组；不传 attribute 时全部展示", async () => {
+    const store = await makeStoreWithResidenceHistory();
+    const tool = createTimelineTool({ store, log: silentLog });
+    const all = await tool.execute({ entity: "用户" });
+    expect(all).toContain("共 3 条");
+    expect(all).toContain("职业」当前：学生");
+    expect(all).toContain("居住地」当前：上海");
   });
 });

@@ -136,4 +136,71 @@ describe("turn 摄入管线（逐事实写入）", () => {
     expect(store.all()).toHaveLength(2);
     expect(store.all()[0].turn?.turnEventId).toBe("evt-1");
   });
+
+  it("claims 挂到各自来源事实的记录上，带 validFrom 且 validUntil 为 null", async () => {
+    const store = new MemoryStore(storage.storage, silentLog);
+    const ingest = createTurnIngestor({
+      conversations: {
+        list: async () => ({ items: [] }),
+        getMessages: async () => ({ items: MESSAGES, range: {} }),
+      },
+      llm: {
+        generateText: async () => JSON.stringify({
+          facts: ["用户搬到了上海", "用户养了只猫叫月饼"],
+          claims: [
+            { entity: "用户", attribute: "居住地", value: "上海", fact: 0 },
+            { entity: "月饼", attribute: "物种", value: "猫", fact: 1 },
+            { entity: "月饼", attribute: "名字来源", value: "中秋", fact: 0 },
+          ],
+        }),
+      },
+      embedder: { id: "none", embed: async () => null },
+      store,
+      config: {
+        embeddingProvider: "none",
+        embeddingBaseUrl: "",
+        embeddingModel: "",
+        embeddingApiKeyName: "k",
+        hotContextBudgetChars: 900,
+        maxMemoriesPerTurn: 3,
+      },
+      log: silentLog,
+    });
+    await ingest(TASK);
+
+    const [first, second] = store.all();
+    expect(first.content).toBe("用户搬到了上海");
+    expect(first.entityClaims).toEqual([
+      { entity: "用户", attribute: "居住地", value: "上海", validFrom: first.createdAt, validUntil: null },
+      { entity: "月饼", attribute: "名字来源", value: "中秋", validFrom: first.createdAt, validUntil: null },
+    ]);
+    expect(second.entityClaims).toEqual([
+      { entity: "月饼", attribute: "物种", value: "猫", validFrom: second.createdAt, validUntil: null },
+    ]);
+  });
+
+  it("LLM 输出旧格式纯数组时，记录不带 entityClaims 字段", async () => {
+    const store = new MemoryStore(storage.storage, silentLog);
+    const ingest = createTurnIngestor({
+      conversations: {
+        list: async () => ({ items: [] }),
+        getMessages: async () => ({ items: MESSAGES, range: {} }),
+      },
+      llm: { generateText: async () => '["用户在准备期末考试"]' },
+      embedder: { id: "none", embed: async () => null },
+      store,
+      config: {
+        embeddingProvider: "none",
+        embeddingBaseUrl: "",
+        embeddingModel: "",
+        embeddingApiKeyName: "k",
+        hotContextBudgetChars: 900,
+        maxMemoriesPerTurn: 3,
+      },
+      log: silentLog,
+    });
+    await ingest(TASK);
+    const [record] = store.all();
+    expect(record.entityClaims).toBeUndefined();
+  });
 });
