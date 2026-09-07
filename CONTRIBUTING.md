@@ -117,8 +117,26 @@ Versioning follows SemVer (`MAJOR.MINOR.PATCH`). `manifest.json` and `package.js
 1. **Update CHANGELOG.md**: add a version entry at the top.
 2. **Bump version** in both `manifest.json` and `package.json` (and `package-lock.json` via `npm install`).
 3. **Full quality chain green**: `npm run typecheck && npm run build && npm test && npm run check-sync`.
-4. **Commit and push** → `git tag vX.Y.Z` → `git push origin vX.Y.Z` → create a GitHub Release referencing the CHANGELOG entry.
-5. **Submit to Cyrene-Plugins** (when ready): PR with `manifest.json` + compiled `index.cjs` (+ panel assets); the upstream maintainers package the ZIP. `prepack` runs the check-sync gate automatically.
+4. **Commit and push** → `git tag vX.Y.Z` → `git push origin vX.Y.Z` → the Release workflow packages the ZIP and creates the GitHub Release.
+5. **Edit the Release notes to the fixed format** (see below); release bodies stay short — details live in CHANGELOG.
+6. **Submit to Cyrene-Plugins** (when ready): PR with `manifest.json` + compiled `index.cjs` (+ panel assets); the upstream maintainers package the ZIP. `prepack` runs the check-sync gate automatically.
+
+**Fixed release-notes format** (title `岁月涟漪 · Ripples of Aion vX.Y.Z`):
+
+```markdown
+## ✨ 新增
+- <要点，每条一行>
+
+## 🔧 修复
+- <要点，每条一行>
+
+## 📦 安装
+
+下载下方 `ripples-of-aion-vX.Y.Z.zip`，在 Cyrene 插件面板「导入插件」后手动启用。
+
+> <可选：升级/迁移提示。>
+> 完整变更见 [CHANGELOG](https://github.com/modusensus/Ripples-of-Aion/blob/main/CHANGELOG.md)。
+```
 
 ---
 
@@ -248,8 +266,26 @@ Cyrene 插件 API 还是 v1，仍在演进。把本插件适配到其他宿主�
 1. **更新 CHANGELOG.md**：在顶部新增版本条目。
 2. **改版本号**：`manifest.json` 与 `package.json`（`package-lock.json` 经 `npm install` 同步）。
 3. **全量质量链绿**：`npm run typecheck && npm run build && npm test && npm run check-sync`。
-4. **提交推送** → `git tag vX.Y.Z` → `git push origin vX.Y.Z` → 创建 GitHub Release 并引用 CHANGELOG 条目。
-5. **提交 Cyrene-Plugins 收录**（就绪后）：PR 提交 `manifest.json` + 编译产物 `index.cjs`（+ panel 资源）；ZIP 由上游维护者统一打包。`prepack` 会自动跑 check-sync 闸门。
+4. **提交推送** → `git tag vX.Y.Z` → `git push origin vX.Y.Z` → Release 工作流会打包 ZIP 并创建 GitHub Release。
+5. **按固定格式改写 Release 说明**（见下）；Release 说明保持简短，细节留在 CHANGELOG。
+6. **提交 Cyrene-Plugins 收录**（就绪后）：PR 提交 `manifest.json` + 编译产物 `index.cjs`（+ panel 资源）；ZIP 由上游维护者统一打包。`prepack` 会自动跑 check-sync 闸门。
+
+**Release 说明固定格式**（标题 `岁月涟漪 · Ripples of Aion vX.Y.Z`）：
+
+```markdown
+## ✨ 新增
+- <要点，每条一行>
+
+## 🔧 修复
+- <要点，每条一行>
+
+## 📦 安装
+
+下载下方 `ripples-of-aion-vX.Y.Z.zip`，在 Cyrene 插件面板「导入插件」后手动启用。
+
+> <可选：升级/迁移提示。>
+> 完整变更见 [CHANGELOG](https://github.com/modusensus/Ripples-of-Aion/blob/main/CHANGELOG.md)。
+```
 
 ---
 
