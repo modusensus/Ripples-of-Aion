@@ -15,7 +15,7 @@ export async function createTempStorage(): Promise<{
   rootDir: string;
   cleanup: () => Promise<void>;
 }> {
-  const dir = await mkdtemp(path.join(tmpdir(), "suiyue-test-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "ripples-test-"));
   const map = new Map<string, unknown>();
   return {
     storage: {
@@ -39,7 +39,7 @@ export const silentLog = {
 
 /** 插件契约测试用的最小 PluginContext 假实现。 */
 export function createMockContext(
-  options: { pluginId: string; deps?: PluginDeps } = { pluginId: "suiyue-lianyi" },
+  options: { pluginId: string; deps?: PluginDeps } = { pluginId: "ripples-of-aion" },
 ): MockContext {
   const id = options.pluginId;
   const deps = options.deps ?? {};

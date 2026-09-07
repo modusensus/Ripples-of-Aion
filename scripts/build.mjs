@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 构建脚本：把 TypeScript 源码打包成单个 index.cjs，并把 manifest / UI 面板一起放进
- * dist/plugin/suiyue-lianyi/。产物可直接压缩成 Cyrene 插件 ZIP，也可用 deploy.mjs
+ * dist/plugin/ripples-of-aion/。产物可直接压缩成 Cyrene 插件 ZIP，也可用 deploy.mjs
  * 拷贝到本机插件目录。
  */
 import { createHash } from "node:crypto";
@@ -12,7 +12,7 @@ import esbuild from "esbuild";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const PLUGIN_DIR = path.join(ROOT, "dist", "plugin", "suiyue-lianyi");
+const PLUGIN_DIR = path.join(ROOT, "dist", "plugin", "ripples-of-aion");
 const SRC_DIR = path.join(ROOT, "src");
 const MANIFEST_PATH = path.join(ROOT, "manifest.json");
 const SOURCE_HASH_PATH = path.join(ROOT, "dist", ".source-hash");
@@ -62,7 +62,7 @@ async function copyPanelAssets() {
 }
 
 async function main() {
-  console.log("[build] 开始构建 suiyue-lianyi...");
+  console.log("[build] 开始构建 ripples-of-aion...");
 
   // 清理旧产物
   await rm(PLUGIN_DIR, { recursive: true, force: true });

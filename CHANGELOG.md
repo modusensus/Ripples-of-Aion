@@ -15,7 +15,7 @@
   闭合失败只 warn，查询侧按「最新者为准」兜底，绝不影响新记录落盘
 - 时间轴去噪：与既有活跃 claim 完全相同（entity/attribute/value）的新声明
   不入库不闭合，重述同一属性不制造时间轴噪音；软删记录的 claim 不参与闭合
-- 第 4 个 AI 工具 `suiyue-lianyi_timeline`（实体时间轴）：按实体（可选限定属性）
+- 第 4 个 AI 工具 `ripples-of-aion_timeline`（实体时间轴）：按实体（可选限定属性）
   查询属性变更史，当前值在前、历史在后，闭环失败等脏状态如实展示
 - 记忆图谱窗口改版：珍珠白樱粉主题贴合昔涟视觉，新增「实体时间轴」区块
   （当前值高亮 + 历史起止日期的轨道图，数据来自 get-state 新增的 claims 字段），
@@ -27,6 +27,7 @@
 
 - `MemoryRecord.entityClaims` 自 v0.1.0 预留后正式启用；旧库数据无需迁移，
   无 claims 的记录行为完全不变
+- 插件 id 由 `suiyue-lianyi` 更名为 `ripples-of-aion`（发布前窗口期，无外部用户）：宿主会按新 id 重建插件数据目录，老用户需将 `plugin-data/suiyue-lianyi/` 手工改名为 `plugin-data/ripples-of-aion/` 以保留记忆，并在插件面板重新启用
 
 ## [0.1.0] - 2026-09-07
 

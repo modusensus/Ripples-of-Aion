@@ -6,7 +6,7 @@ import { PLUGIN_ID } from "../src/plugin-id";
 import { assertToolContract, createMockContext } from "./helpers";
 
 /** 产物路径：vitest 工作目录 = 项目根。 */
-const BUILT_ENTRY = path.resolve(process.cwd(), "dist/plugin/suiyue-lianyi/index.cjs");
+const BUILT_ENTRY = path.resolve(process.cwd(), "dist/plugin/ripples-of-aion/index.cjs");
 
 /** 直接加载构建产物做契约测试——测的就是要发布的东西。 */
 function loadPlugin(): { register: (ctx: unknown) => Promise<void>; unregister: () => Promise<void> } {

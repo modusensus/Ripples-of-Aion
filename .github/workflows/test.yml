@@ -56,6 +56,6 @@ jobs:
         if: matrix.node-version == 24
         uses: actions/upload-artifact@v7
         with:
-          name: suiyue-lianyi-plugin
-          path: dist/plugin/suiyue-lianyi/
+          name: ripples-of-aion-plugin
+          path: dist/plugin/ripples-of-aion/
           if-no-files-found: error

@@ -1,11 +1,11 @@
 // 岁月涟漪 · 记忆图谱面板
 // channel 与 src/ui/ipc.ts 对应：插件侧通过 ctx.registerIpc 注册短名，
-// 框架命名空间化为 plugin:suiyue-lianyi:<channel>，这里用完整名 invoke。
+// 框架命名空间化为 plugin:ripples-of-aion:<channel>，这里用完整名 invoke。
 // 安全约定：记忆内容是 LLM 派生的不可信数据，渲染只允许 textContent。
 const { ipcRenderer } = require("electron");
 
-const GET_STATE_CHANNEL = "plugin:suiyue-lianyi:get-state";
-const FORGET_CHANNEL = "plugin:suiyue-lianyi:forget";
+const GET_STATE_CHANNEL = "plugin:ripples-of-aion:get-state";
+const FORGET_CHANNEL = "plugin:ripples-of-aion:forget";
 
 const statsEl = document.getElementById("stats");
 const claimListEl = document.getElementById("claim-list");

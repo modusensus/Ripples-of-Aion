@@ -15,14 +15,14 @@
 ## Repository Layout
 
 ```
-suiyue-lianyi/
+ripples-of-aion/
 ├── manifest.json         # Cyrene plugin manifest (apiVersion / id / deps)
 ├── README.md / CHANGELOG.md / SECURITY.md
 ├── src/                  # TypeScript source — all feature work happens here
 │   ├── core/             # memory model, JSONL store, remember() write gate
 │   ├── pipeline/         # task queue, turn ingest, LLM extraction, embedder factory
 │   ├── retrieval/        # hybrid search, rerank
-│   ├── tools/            # suiyue-lianyi_recall / search / timeline / forget
+│   ├── tools/            # ripples-of-aion_recall / search / timeline / forget
 │   ├── provider/         # hot-context prompt provider
 │   ├── ui/               # graph window, private IPC, panel
 │   └── index.ts          # register / unregister / open
@@ -33,7 +33,7 @@ suiyue-lianyi/
 
 **Key convention: `src/` is the single source of truth; `dist/` is build output.**
 
-- Write code only in `src/`, then run `npm run build` to produce `dist/plugin/suiyue-lianyi/`.
+- Write code only in `src/`, then run `npm run build` to produce `dist/plugin/ripples-of-aion/`.
 - **Never edit `dist/` by hand** — the next build overwrites it.
 - `scripts/check-sync.mjs` records a source hash at build time and re-verifies it on `prepack`. If `src/` or `manifest.json` changed without a rebuild, packaging **fails with exit 1**. This exists because a stale compiled artifact is a silent-failure class we have been burned by before.
 - Cyrene-Plugins indexes the **compiled `index.cjs`**: before submitting upstream, always `npm run build && npm run check-sync`.
@@ -51,7 +51,7 @@ npm test            # vitest full suite
 npm run deploy      # build + install into local Cyrene (%APPDATA%/live2d-cyrene/plugins/)
 ```
 
-> Note the order: **build before test**. The contract suite loads `dist/plugin/suiyue-lianyi/index.cjs` directly — it tests exactly what ships, which is why CI also builds first.
+> Note the order: **build before test**. The contract suite loads `dist/plugin/ripples-of-aion/index.cjs` directly — it tests exactly what ships, which is why CI also builds first.
 
 | Command | Description |
 |---------|-------------|
@@ -146,14 +146,14 @@ Versioning follows SemVer (`MAJOR.MINOR.PATCH`). `manifest.json` and `package.js
 ## 代码库布局
 
 ```
-suiyue-lianyi/
+ripples-of-aion/
 ├── manifest.json         # Cyrene 插件清单（apiVersion / id / deps）
 ├── README.md / CHANGELOG.md / SECURITY.md
 ├── src/                  # TypeScript 源码，所有功能都在这里开发
 │   ├── core/             # 记忆模型、JSONL 存储、remember() 写入收口
 │   ├── pipeline/         # 任务队列、turn 摄入、LLM 抽取、embedding 工厂
 │   ├── retrieval/        # 混合检索、rerank
-│   ├── tools/            # suiyue-lianyi_recall / search / timeline / forget
+│   ├── tools/            # ripples-of-aion_recall / search / timeline / forget
 │   ├── provider/         # hot-context prompt provider
 │   ├── ui/               # 图谱窗口、私有 IPC、面板
 │   └── index.ts          # register / unregister / open
@@ -164,7 +164,7 @@ suiyue-lianyi/
 
 **关键约定：`src/` 是唯一的事实来源，`dist/` 是构建产物。**
 
-- 所有代码改动只写 `src/`，改完运行 `npm run build` 生成 `dist/plugin/suiyue-lianyi/`。
+- 所有代码改动只写 `src/`，改完运行 `npm run build` 生成 `dist/plugin/ripples-of-aion/`。
 - **不要手工编辑 `dist/`**——下次构建会覆盖你的改动。
 - `scripts/check-sync.mjs` 在构建时记录源码哈希，`prepack` 时重新校验。`src/` 或 `manifest.json` 变了而产物没重建，打包会**直接 exit 1 失败**——这个闸门存在的原因是「产物静默失效」是我们真实踩过的坑。
 - Cyrene-Plugins 收录的是**编译产物 `index.cjs`**：向上游提交前务必 `npm run build && npm run check-sync`。
@@ -182,7 +182,7 @@ npm test            # vitest 全量测试
 npm run deploy      # 构建 + 安装到本机 Cyrene（%APPDATA%/live2d-cyrene/plugins/）
 ```
 
-> 注意顺序：**先 build 再 test**。契约测试直接加载 `dist/plugin/suiyue-lianyi/index.cjs`——测的就是要发布的东西，所以 CI 也是先构建再测试。
+> 注意顺序：**先 build 再 test**。契约测试直接加载 `dist/plugin/ripples-of-aion/index.cjs`——测的就是要发布的东西，所以 CI 也是先构建再测试。
 
 | 命令 | 说明 |
 |------|------|

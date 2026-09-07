@@ -4,7 +4,7 @@ import type { Logger } from "../logger";
 
 /**
  * 面板私有 IPC：通过 ctx.registerIpc 注册，channel 只用短名，
- * 框架自动命名空间化为 plugin:suiyue-lianyi:<channel>（panel.js 用完整名调用）。
+ * 框架自动命名空间化为 plugin:ripples-of-aion:<channel>（panel.js 用完整名调用）。
  */
 const GET_STATE_CHANNEL = "get-state";
 const FORGET_CHANNEL = "forget";

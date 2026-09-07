@@ -44,12 +44,12 @@ jobs:
       - name: Package plugin ZIP
         run: |
           cd dist/plugin
-          zip -r "../suiyue-lianyi-${GITHUB_REF_NAME}.zip" suiyue-lianyi
+          zip -r "../ripples-of-aion-${GITHUB_REF_NAME}.zip" ripples-of-aion
           cd ../..
-          unzip -l "dist/suiyue-lianyi-${GITHUB_REF_NAME}.zip"
+          unzip -l "dist/ripples-of-aion-${GITHUB_REF_NAME}.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/suiyue-lianyi-*.zip
+          files: dist/ripples-of-aion-*.zip
           generate_release_notes: true

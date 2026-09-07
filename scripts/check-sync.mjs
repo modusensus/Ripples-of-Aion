@@ -13,7 +13,7 @@ const ROOT = path.resolve(__dirname, "..");
 const SRC_DIR = path.join(ROOT, "src");
 const MANIFEST_PATH = path.join(ROOT, "manifest.json");
 const SOURCE_HASH_PATH = path.join(ROOT, "dist", ".source-hash");
-const OUT_CJS = path.join(ROOT, "dist", "plugin", "suiyue-lianyi", "index.cjs");
+const OUT_CJS = path.join(ROOT, "dist", "plugin", "ripples-of-aion", "index.cjs");
 
 async function sha256File(filePath) {
   const data = await readFile(filePath);
@@ -48,7 +48,7 @@ async function main() {
   try {
     await stat(OUT_CJS);
   } catch {
-    console.error("[check-sync] 失败：缺少 dist/plugin/suiyue-lianyi/index.cjs，请先运行 npm run build");
+    console.error("[check-sync] 失败：缺少 dist/plugin/ripples-of-aion/index.cjs，请先运行 npm run build");
     process.exit(1);
   }
 
