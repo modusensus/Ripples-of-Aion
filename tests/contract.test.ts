@@ -12,7 +12,9 @@ const BUILT_ENTRY = path.resolve(process.cwd(), "dist/plugin/ripples-of-aion/ind
 function loadPlugin(): { register: (ctx: unknown) => Promise<void>; unregister: () => Promise<void> } {
   expect(existsSync(BUILT_ENTRY), "产物不存在，先运行 npm run build").toBe(true);
   const require = createRequire(path.join(process.cwd(), "package.json"));
-  return require(BUILT_ENTRY);
+  // 加载目标必须是字符串字面量：路径来自本仓库固定产物而非外部输入，
+  // 字面量让静态安全扫描可判定这一点；变更产物位置时与 BUILT_ENTRY 同步。
+  return require("./dist/plugin/ripples-of-aion/index.cjs");
 }
 
 /** 注册插件所需的最小宿主服务假实现。 */
