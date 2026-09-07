@@ -76,10 +76,17 @@ export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
     }
   };
 
+  // 重复注册幂等：先移除旧处理器。首次注册时通道不存在，宿主会抛
+  // 「不能注销不属于当前插件的 IPC channel」——这里只吞掉 unregister 的失败，
+  // 绝不能让 catch 波及下面的 register。
+  for (const channel of [GET_STATE_CHANNEL, FORGET_CHANNEL]) {
+    try {
+      ctx.unregisterIpc(channel);
+    } catch {
+      /* 通道尚未注册，忽略 */
+    }
+  }
   try {
-    // 重复注册幂等：先移除旧处理器。
-    ctx.unregisterIpc(GET_STATE_CHANNEL);
-    ctx.unregisterIpc(FORGET_CHANNEL);
     ctx.registerIpc(GET_STATE_CHANNEL, () => getState());
     ctx.registerIpc(FORGET_CHANNEL, (id) => forget(id));
   } catch (err) {

@@ -60,13 +60,15 @@ const plugin: CyrenePlugin = {
       log,
     });
     const queue = new TaskQueue<IngestTask>({ signal: ctx.signal, log });
-    ctx.events.on("host:turn:finished", async (event: PluginTurnFinishedEvent) => {
+    ctx.events.on("host:turn:finished", (event: PluginTurnFinishedEvent) => {
       // 只收桌面成功轮次；finalMessageId 只有宿主确认落盘后才存在，非成功终态不得自己补
       if (event.source !== "desktop" || event.status !== "success") return;
       if (!event.finalMessageId || !event.inputMessageId) return;
       if (!conversations) return;
-      // 投队列即返回：不 await 重活（宿主 5 秒就取消监听器）
-      await queue.enqueue(
+      // 只投队列、绝不 await：enqueue 的 promise 要等任务跑完才 resolve，
+      // await 它会让监听器超过宿主 5 秒上限（实测会刷「异步执行超时」日志）。
+      // enqueue 从不 reject，void 丢弃 promise 即可。
+      void queue.enqueue(
         {
           conversationId: event.conversationId,
           turnEventId: event.eventId,
