@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PluginLlmService } from "@playa0v0/cyrene-plugin-sdk";
+import type { PluginLlmMessage, PluginLlmService } from "@playa0v0/cyrene-plugin-sdk";
+import { CANONICAL_ATTRS } from "../src/core/attributes";
 import { extractTurn } from "../src/pipeline/extractor";
 import { silentLog } from "./helpers";
 
@@ -83,5 +84,33 @@ describe("extractTurn（事实 + 属性声明）", () => {
     const turn = await extract("这不是 JSON");
     expect(turn.facts).toEqual([]);
     expect(turn.claims).toEqual([]);
+  });
+
+  it("system prompt 含固定属性词表：canonical 词条全部出现在提示词里", async () => {
+    let captured: PluginLlmMessage[] = [];
+    const llm: PluginLlmService = {
+      generateText: async (messages) => {
+        captured = messages;
+        return '{"facts": [], "claims": []}';
+      },
+    };
+    await extractTurn(llm, MESSAGES, { maxFacts: 3, log: silentLog });
+    const system = captured[0]?.content ?? "";
+    for (const attr of CANONICAL_ATTRS) {
+      expect(system).toContain(attr);
+    }
+  });
+
+  it("解析出的 claim 属性经归一化落库：别名、全角、空格变体收敛为 canonical 形式", async () => {
+    const raw = JSON.stringify({
+      facts: ["用户换工作了，这个月先去东京出差"],
+      claims: [
+        { entity: "用户", attribute: "工作所在地", value: "上海", fact: 0 },
+        { entity: "用户", attribute: "出差行程", value: "东京", fact: 0 },
+        { entity: "用户", attribute: " 居住地　", value: "上海", fact: 0 },
+      ],
+    });
+    const turn = await extract(raw);
+    expect(turn.claims.map((c) => c.attribute)).toEqual(["工作地点", "行程", "居住地"]);
   });
 });

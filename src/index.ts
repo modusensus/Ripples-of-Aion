@@ -40,9 +40,9 @@ const plugin: CyrenePlugin = {
     ctx.registerTool(createTimelineTool({ store, log }));
     ctx.registerTool(createForgetTool({ store, log }));
 
-    // 热记忆注入 provider
+    // 热记忆注入 provider（v0.3.0 轻量化：不传 embedder，纯关键词检索）
     ctx.registerPromptProvider(
-      createHotContextProvider({ store, config, embedder, log }),
+      createHotContextProvider({ store, config, log }),
     );
 
     // 轮次摄入管线：turn:finished 是旁路通知（宿主不等），必须自己排队异步做

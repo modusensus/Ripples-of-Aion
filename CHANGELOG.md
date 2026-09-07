@@ -3,6 +3,42 @@
 本插件遵循 [SemVer](https://semver.org/lang/zh-CN/)。版本号三段式由 `manifest.json`
 与 `package.json` 同步维护——发布前跑 `npm run check-sync` 防止产物静默失效。
 
+## [0.3.0] - 2026-09-08
+
+### 新增
+
+- 主观 heat 记忆热度：`MemoryRecord` 新增 `heat` / `lastTouchedAt`，检索时惰性计算
+  指数时间衰减（默认约两周衰半，`heatDecayPerDay` 可调），常被想起的自然浮前、
+  长期不用的自然沉底；检索命中（热上下文注入 / recall / search 工具）与
+  「新记忆提及同实体」都会让热度向 1 靠拢一档，30 分钟节流防止日志暴涨，
+  落盘走既有 put op 追加模式，重放一致；混合检索两条路径的最终分都乘热度增益
+  （`heatWeight` 默认 0.5）
+- moments-post 场景注入（随宿主 Cyrene-Agent#75 落地）：热记忆 Provider 显式声明
+  `sources: ["conversation", "scheduler", "moments-post"]`，昔涟主动发动态时同样
+  注入相关记忆；记忆保持全局、不按会话过滤——跨聊天记忆正是本插件的核心能力
+- 属性别名归一化：新增 `src/core/attributes.ts` 的 `canonicalAttr()`（trim / 全角
+  转半角 / 去空白 + 19 条确定性别名映射），claim 比较与时间轴分组一律看 canonical
+  形式，`getEntityTimeline` 返回的声明保留原始字面量；抽取 prompt 加入固定属性
+  词表（12 项）引导 LLM 稳定选词
+
+### 修复
+
+- 属性时间轴因 LLM 属性字面量漂移而漏闭合/重复分轨（实测「工作所在地」vs
+  「工作地点」并存、「出差行程」vs「行程」重复）：归一化后存量旧字面量无需
+  迁移即可被新声明正确闭合，重述去重跨别名生效
+
+### 变更
+
+- 热上下文轻量化：每轮注入不再调用 embedding API（纯关键词检索），显著降低
+  首字延迟；向量检索只保留给 `ripples-of-aion_search` 工具
+- 新增可选配置 `heatDecayPerDay`（默认 0.05）、`heatWeight`（0.5）、`heatBump`（0.15）
+
+### 兼容性
+
+- v0.2.0 库数据无需迁移：heat 缺省按中性 0.5 参与，旧字面量 claim 在比较时
+  现归一；未配置新字段时走内置默认值
+- 测试 41 → 57 用例：store +13（热度 5 + 别名归一 8）、extractor +2、tools +1
+
 ## [0.2.0] - 2026-09-07
 
 ### 新增

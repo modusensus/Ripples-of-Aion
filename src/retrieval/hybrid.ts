@@ -1,4 +1,4 @@
-import { tokenizeText } from "../core/store";
+import { tokenizeText, effectiveHeatOf, HEAT_DECAY_PER_DAY, HEAT_WEIGHT } from "../core/store";
 import type { PluginConfig } from "../config";
 import type { Logger } from "../logger";
 import type { Embedder, MemoryRecord, SearchHit, SearchQuery } from "../core/types";
@@ -25,7 +25,12 @@ export interface HybridSearchStore {
 }
 
 export interface HybridSearcherDeps {
-  embedder: Embedder;
+  /**
+   * 可选：提供后启用向量重排；缺席直接走纯关键词路径（fetchQueryVector
+   * 的既有 null 分支）。v0.3.0 起热上下文不再传 embedder——每轮都打
+   * embedding API 拖慢首字延迟，向量检索只保留给 search 工具。
+   */
+  embedder?: Embedder;
   log: Logger;
 }
 
@@ -33,10 +38,12 @@ export interface HybridSearcherDeps {
 export type HybridSearcher = (query: SearchQuery) => Promise<SearchHit[]>;
 
 /**
- * 混合检索器：关键词召回打底，向量分重打分。
+ * 混合检索器：关键词召回打底，向量分重打分，主观热度做最终增益。
  * 流程：searchKeyword 拿候选 → 按会话过滤 → 可用时对查询取 embedding，
- * 与候选记录的向量（embeddingModel 匹配当前配置）算余弦 → 加权融合排序。
- * 向量不可用时退化为纯关键词检索，绝不因 embedding 挂掉而整体失败。
+ * 与候选记录的向量（embeddingModel 匹配当前配置）算余弦 → 加权融合
+ * → 乘以热度增益 (1 + heatWeight * effectiveHeat) 排序。
+ * 向量不可用时退化为纯关键词检索（热度增益同样生效），
+ * 绝不因 embedding 挂掉而整体失败。
  */
 export function createHybridSearcher(
   store: HybridSearchStore,
@@ -44,6 +51,9 @@ export function createHybridSearcher(
   deps: HybridSearcherDeps,
 ): HybridSearcher {
   const { embedder, log } = deps;
+  // heat 配置缺省时回落到与 DEFAULT_CONFIG 同源的内置值（手搓 config 的测试也能跑）
+  const heatWeight = config.heatWeight ?? HEAT_WEIGHT;
+  const decayPerDay = config.heatDecayPerDay ?? HEAT_DECAY_PER_DAY;
 
   return async function search(query: SearchQuery): Promise<SearchHit[]> {
     const limit = Math.max(1, Math.floor(query.limit ?? DEFAULT_LIMIT));
@@ -61,24 +71,33 @@ export function createHybridSearcher(
     //    量纲与 store 内部排序一致，归一到 [0,1] 后参与融合
     const keywordScores = keywordScoresOf(query.text, candidates);
 
-    // 3. 查询向量：拿不到就走纯关键词
+    // 3. 查询向量：拿不到就走纯关键词。同一时钟基准算热度，候选间可比
+    const now = Date.now();
+    const heatGain = (record: MemoryRecord): number =>
+      // 热度增益：score *= 1 + weight * effectiveHeat，常被想起的记忆上浮
+      1 + heatWeight * effectiveHeatOf(record, decayPerDay, now);
     const queryVector = await fetchQueryVector(query.text);
     if (!queryVector) {
-      return candidates.slice(0, limit).map((record, index) => ({
+      // 纯关键词路径：乘热度增益后按分重排（sort 稳定，
+      // 热度无差别时保持原有关键词序 + 同分新者在前）
+      const boosted = candidates.map((record, index) => ({
         record,
-        score: keywordScores[index],
+        score: keywordScores[index] * heatGain(record),
         source: "keyword" as const,
       }));
+      boosted.sort((a, b) => b.score - a.score);
+      return boosted.slice(0, limit);
     }
 
-    // 4. 融合：向量 1.0 + 关键词 0.7；无可用向量的记录向量分记 0
+    // 4. 融合：向量 1.0 + 关键词 0.7；无可用向量的记录向量分记 0；
+    //    热度增益乘在融合分上，keyword / hybrid 两条路径口径一致
     const maxKeyword = Math.max(0, ...keywordScores);
     const fused = candidates.map((record, index) => {
       const keywordScore = maxKeyword > 0 ? keywordScores[index] / maxKeyword : 0;
       const vectorScore = vectorScoreOf(record, queryVector, config);
       return {
         record,
-        score: KEYWORD_WEIGHT * keywordScore + VECTOR_WEIGHT * vectorScore,
+        score: (KEYWORD_WEIGHT * keywordScore + VECTOR_WEIGHT * vectorScore) * heatGain(record),
         source: "hybrid" as const,
       };
     });

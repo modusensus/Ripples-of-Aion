@@ -1,14 +1,18 @@
 import type { PluginTool } from "@playa0v0/cyrene-plugin-sdk";
 import type { Logger } from "../logger";
 import { PLUGIN_ID } from "../plugin-id";
-import type { MemoryRecord } from "../core/types";
+import type { MemoryId, MemoryRecord } from "../core/types";
 import { formatMemoryList, readOptionalString, type ToolsStore } from "./shared";
 
 /** 单次回忆最多列出的记忆条数。 */
 const RECALL_LIMIT = 20;
 
 export interface RecallToolDeps {
-  store: ToolsStore;
+  // 访问加权：返回给 AI 即视为被想起；store 内部节流落盘、绝不抛。
+  // 交集类型写法与 timeline.ts 一致（MemoryStore 天然满足，结构化兼容）。
+  store: ToolsStore & {
+    bumpHeat(ids: MemoryId[]): void;
+  };
   log: Logger;
 }
 
@@ -48,6 +52,11 @@ export function createRecallTool(deps: RecallToolDeps): PluginTool {
         const conversationId = readOptionalString(args.conversationId);
         await store.load();
         const records = recentRecords(store, RECALL_LIMIT, conversationId);
+        if (records.length > 0) {
+          // 访问加权：返回结果前 bump（不 await，内部已 fail-safe），
+          // 绝不因热度记账拖慢或弄挂回忆结果。
+          store.bumpHeat(records.map((record) => record.id));
+        }
         // 「共 N 条」统一按活跃记录口径；未指定会话时直接用统计，指定会话时现数
         const total = conversationId
           ? store.all({ conversationId }).length

@@ -2,12 +2,15 @@ import type { PluginTool } from "@playa0v0/cyrene-plugin-sdk";
 import type { PluginConfig } from "../config";
 import type { Logger } from "../logger";
 import { PLUGIN_ID } from "../plugin-id";
-import type { Embedder, SearchQuery } from "../core/types";
+import type { Embedder, MemoryId, SearchQuery } from "../core/types";
 import { createHybridSearcher, type HybridSearchStore } from "../retrieval/hybrid";
 import { formatHitList, readOptionalString, readRequiredString } from "./shared";
 
 export interface SearchToolDeps {
-  store: HybridSearchStore;
+  // 访问加权：命中返回即视为被想起；store 内部节流落盘、绝不抛。
+  store: HybridSearchStore & {
+    bumpHeat(ids: MemoryId[]): void;
+  };
   config: PluginConfig;
   embedder: Embedder;
   log: Logger;
@@ -15,7 +18,7 @@ export interface SearchToolDeps {
 
 /** 「搜索记忆」工具：AI 用来按主题查历史事实。 */
 export function createSearchTool(deps: SearchToolDeps): PluginTool {
-  const { log } = deps;
+  const { store, log } = deps;
   const search = createHybridSearcher(deps.store, deps.config, { embedder: deps.embedder, log });
 
   return {
@@ -49,6 +52,8 @@ export function createSearchTool(deps: SearchToolDeps): PluginTool {
         if (hits.length === 0) {
           return `没有找到与「${text}」相关的记忆。`;
         }
+        // 访问加权：返回结果前 bump（不 await，内部已 fail-safe）。
+        store.bumpHeat(hits.map((hit) => hit.record.id));
         return `找到 ${hits.length} 条相关记忆：\n${formatHitList(hits)}`;
       } catch (err) {
         log.warn("search 执行失败，已降级返回：", err);

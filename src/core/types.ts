@@ -31,6 +31,15 @@ export interface MemoryRecord {
   /** 实体属性时间轴声明（dsh-mneme 独门能力）。 */
   entityClaims?: EntityClaim[];
 
+  /**
+   * 主观热度 ∈ [0,1]：被访问/被提及就向 1 靠拢，随后按天惰性衰减。
+   * 缺省视为中性 0.5（getter 语义，见 store.effectiveHeatOf）——
+   * 不把缺省值写进 JSONL，避免旧记录重放时被无谓改写。
+   */
+  heat?: number;
+  /** 最近一次 heat 触碰（bump 落盘）时间戳，毫秒；惰性衰减以此为锚点。 */
+  lastTouchedAt?: number;
+
   /** 软删标记；JSONL 追加 delete op 时设置。 */
   deleted?: boolean;
 }

@@ -5,9 +5,9 @@
 <h1 align="center">⏳ 岁月涟漪 · Ripples of Aion</h1>
 
 <p align="center">
-  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.2.0-ff69b4?style=flat-square" alt="version"></a>
+  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.3.0-ff69b4?style=flat-square" alt="version"></a>
   <a href="https://github.com/modusensus/Ripples-of-Aion/actions"><img src="https://img.shields.io/github/actions/workflow/status/modusensus/Ripples-of-Aion/test.yml?style=flat-square&label=CI" alt="CI"></a>
-  <img src="https://img.shields.io/badge/tests-41%20passed-ff69b4?style=flat-square" alt="tests">
+  <img src="https://img.shields.io/badge/tests-57%20passed-ff69b4?style=flat-square" alt="tests">
   <a href="https://codecov.io/gh/modusensus/Ripples-of-Aion"><img src="https://img.shields.io/codecov/c/github/modusensus/Ripples-of-Aion/main?style=flat-square&color=ff69b4&label=coverage" alt="coverage"></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-ff69b4?style=flat-square&logo=typescript&logoColor=white" alt="typescript">
   <img src="https://img.shields.io/badge/node-22%2B-ff69b4?style=flat-square&logo=nodedotjs&logoColor=white" alt="node">
@@ -111,7 +111,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 |------|------|------|
 | **v0.1.0** | 骨架 + 最小纵切：写入收口 / 混合检索 / 注入 / 三工具 / 窗口 / CI | ✅ |
 | **v0.2.0** | 实体抽取 + `valid_until` 属性时间轴 + 时间轴工具 + 面板改版 + id 更名 | ✅ |
-| **v0.3.0** | 主观 heat 衰减：访问频率打底，被昔涟主动提及、被用户强调的事实加权更热 | 🚧 |
+| **v0.3.0** | 主观 heat 衰减（检索命中/同实体提及加权）+ 热上下文轻量化（关键词 only）+ 属性别名归一化 + moments-post 注入 | ✅ |
 | **v0.4.0** | autoDream 空闲整合（聚类 + 冲突标记 + 启动补跑） | 🚧 |
 | **v0.5.0** | LLM rerank 精排 + 图谱窗口可视化增强 | 🚧 |
 | **长期** | 对接 CyreneCore Memory API（能力清单见 [docs/memory-api-wishlist.md](docs/memory-api-wishlist.md)） | 📋 |
@@ -123,7 +123,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 41 个测试
+npm test           # 57 个测试
 npm run build
 npm run deploy     # 构建并安装到本机 Cyrene
 ```
@@ -222,7 +222,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 |------|------|------|
 | **v0.1.0** | Skeleton + minimal vertical slice: write gate / hybrid retrieval / injection / three tools / window / CI | ✅ |
 | **v0.2.0** | Entity extraction + `valid_until` attribute timeline + timeline tool + panel redesign + id rename | ✅ |
-| **v0.3.0** | Subjective heat decay: access frequency as the floor, boosted when 昔涟 brings it up or the user emphasizes it | 🚧 |
+| **v0.3.0** | Subjective heat decay (access/mention boost) + lightweight hot context (keyword-only) + attribute alias normalization + moments-post injection | ✅ |
 | **v0.4.0** | autoDream idle consolidation (clustering + conflict marking + catch-up on boot) | 🚧 |
 | **v0.5.0** | LLM rerank + graph window visualization | 🚧 |
 | **Long term** | Integrate with the CyreneCore Memory API (capability wishlist in [docs/memory-api-wishlist.md](docs/memory-api-wishlist.md)) | 📋 |
@@ -234,7 +234,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 41 tests
+npm test           # 57 tests
 npm run build
 npm run deploy     # build + install into local Cyrene
 ```

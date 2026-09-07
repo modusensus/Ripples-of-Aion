@@ -3,6 +3,7 @@ import type {
   PluginLlmMessage,
   PluginLlmService,
 } from "@playa0v0/cyrene-plugin-sdk";
+import { CANONICAL_ATTRS, canonicalAttr } from "../core/attributes";
 import type { Logger } from "../logger";
 
 /** extractTurn 的选项。 */
@@ -44,7 +45,11 @@ function buildSystemPrompt(maxFacts: number): string {
     "要求：",
     "- facts：只保留稳定、可复用的信息（身份、偏好、项目、约定、结论、重要背景），忽略寒暄和一次性过程。",
     `- 每条 facts 改写成独立自包含的第三人称陈述句，脱离上下文也能读懂，最多 ${maxFacts} 条；没有值得记的就输出空数组。`,
-    "- claims：从 facts 里挑出「会随时间变化的属性」的当前值，例如居住地、职业、正在做的事、养了什么宠物、关系状态；不随时间变化的稳定属性（姓名、生日等）不要写。",
+    "- claims：从 facts 里挑出「会随时间变化的属性」的当前值，例如居住地、正在做的事、养了什么宠物、关系状态；明显恒定、永不变化的属性（生日等）不要写。",
+    // 固定属性词表：LLM 选词不稳定会让时间轴按字面量分裂成多条（生产实测
+    // 「工作所在地」vs「工作地点」），先用封闭词表从源头收敛；漏网变体由
+    // 存储侧 canonicalAttr 兜底。词表是静态文本，与对话内容无关。
+    `- attribute 优先从固定词表里选一个：${CANONICAL_ATTRS.join("、")}。同一个属性每轮都用词表里的同一个词（写「工作地点」不写「工作所在地」，写「行程」不写「出差行程」）；词表实在覆盖不了时才自拟最简短的属性名。`,
     '- 每条 claim 是一个对象：entity 是属性所属的主体名（如「用户」「月饼」），attribute 是属性名（如「居住地」），value 是当前值，fact 是该 claim 来源事实在 facts 数组中的下标（从 0 开始）。最多 8 条；没有就输出空数组。',
     '- 只输出一个 JSON 对象，格式：{"facts": ["..."], "claims": [{"entity": "...", "attribute": "...", "value": "...", "fact": 0}]}，不要任何解释或 Markdown。',
   ].join("\n");
@@ -69,6 +74,9 @@ function sanitizeFacts(raw: unknown[], maxFacts: number): string[] {
 
 /**
  * 清洗 claims：字段必须是非空字符串、fact 必须指向存在的 facts 下标。
+ * attribute 先过 canonicalAttr 归一化——prompt 词表只是第一道引导，
+ * 这里把漏网变体（别名/全角/空格）收敛成 canonical 形式，存储侧
+ * （store.append）会再归一一次，幂等双保险。
  * 单条不合格直接丢弃（宁可少存不错存），返回条数不超过 MAX_CLAIMS_PER_TURN。
  */
 function sanitizeClaims(raw: unknown, factCount: number): ExtractedClaim[] {
@@ -80,19 +88,17 @@ function sanitizeClaims(raw: unknown, factCount: number): ExtractedClaim[] {
     if (typeof entity !== "string" || typeof attribute !== "string" || typeof value !== "string") {
       continue;
     }
-    const trimmed = {
-      entity: entity.trim(),
-      attribute: attribute.trim(),
-      value: value.trim(),
-    };
-    if (!trimmed.entity || !trimmed.attribute || !trimmed.value) continue;
+    const trimmedEntity = entity.trim();
+    const trimmedValue = value.trim();
+    const canonical = canonicalAttr(attribute);
+    if (!trimmedEntity || !canonical || !trimmedValue) continue;
     // 容忍模型把下标写成字符串；越界或缺失一律丢弃
     const index = typeof fact === "number" ? fact : typeof fact === "string" ? Number(fact) : NaN;
     if (!Number.isInteger(index) || index < 0 || index >= factCount) continue;
     out.push({
-      entity: trimmed.entity.slice(0, CLAIM_FIELD_MAX_CHARS),
-      attribute: trimmed.attribute.slice(0, CLAIM_FIELD_MAX_CHARS),
-      value: trimmed.value.slice(0, CLAIM_FIELD_MAX_CHARS),
+      entity: trimmedEntity.slice(0, CLAIM_FIELD_MAX_CHARS),
+      attribute: canonical.slice(0, CLAIM_FIELD_MAX_CHARS),
+      value: trimmedValue.slice(0, CLAIM_FIELD_MAX_CHARS),
       factIndex: index,
     });
     if (out.length >= MAX_CLAIMS_PER_TURN) break;

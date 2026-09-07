@@ -53,6 +53,9 @@ describe("工具与检索层（源码级）", () => {
     const out = await tool2.execute({});
     expect(out).toContain("手冲咖啡");
     expect(out).toMatch(/\[[0-9a-f-]{36}\]/);
+    // recall 会 bump 命中记录：等 fire-and-forget 的热度落盘结束再收尾，
+    // 否则 afterEach 删临时目录可能撞上在途写入（Windows 下 ENOTEMPTY）
+    await store2.awaitPendingWrites();
   });
 
   it("search：query 缺失时提示；命中时返回带相关度的结果", async () => {
@@ -63,6 +66,8 @@ describe("工具与检索层（源码级）", () => {
     const hits = await tool.execute({ query: "咖啡" });
     expect(hits).toContain("手冲咖啡");
     expect(hits).toContain("相关度");
+    // search 返回前会 bump 命中记录：等同节流落盘结束，避免清理临时目录时撞上在途写入
+    await store.awaitPendingWrites();
   });
 
   it("forget：按 id 删除单条；按 conversationId 清空会话", async () => {
@@ -100,6 +105,25 @@ describe("工具与检索层（源码级）", () => {
     expect(filtered).toHaveLength(0);
   });
 
+  it("heat 排序融合：关键词同分时热度高的排前；embedder 缺席走纯关键词路径", async () => {
+    const store = new MemoryStore(storage.storage, silentLog);
+    const now = Date.now();
+    // 若只按「关键词同分 + 新者在前」，美式（createdAt 2000）应赢；
+    // 热度融合让更老但更常被想起的手冲（heat 0.9）反超——证明热度参与排序
+    await remember(store, { id: "", createdAt: 1000, content: "用户喜欢喝手冲咖啡", heat: 0.9, lastTouchedAt: now }, silentLog);
+    await remember(store, { id: "", createdAt: 2000, content: "用户喜欢喝美式咖啡", heat: 0.2, lastTouchedAt: now }, silentLog);
+    // 不传 embedder（v0.3.0 热上下文形态）：纯关键词路径；
+    // heatWeight=2 / heatDecayPerDay=0 放大热度信号，便于精确断言
+    const search = createHybridSearcher(store, makeConfig({ heatWeight: 2, heatDecayPerDay: 0 }), { log: silentLog });
+    const hits = await search({ text: "咖啡" });
+    expect(hits).toHaveLength(2);
+    expect(hits[0].source).toBe("keyword");
+    expect(hits[0].record.content).toContain("手冲");
+    // score = 关键词分 2（「咖啡」按字拆成 咖+啡，两条全命中）* (1 + weight * heat)
+    expect(hits[0].score).toBeCloseTo(2 * (1 + 2 * 0.9), 6);
+    expect(hits[1].score).toBeCloseTo(2 * (1 + 2 * 0.2), 6);
+  });
+
   it("rerank 直通实现保持原序", async () => {
     const reranker = createPassThroughReranker();
     const hits = [
@@ -109,9 +133,10 @@ describe("工具与检索层（源码级）", () => {
     expect(await reranker.rerank(hits)).toEqual(hits);
   });
 
-  it("hot-context：注入 top 事实且不超预算；空库与中止返回空串", async () => {
+  it("hot-context：无 embedder 轻量注入且不超预算；命中记录热度上升；空库与中止返回空串", async () => {
     const store = await makeStoreWithContent();
-    const provider = createHotContextProvider({ store, config: makeConfig({ hotContextBudgetChars: 40 }), embedder: { id: "none", embed: async () => null }, log: silentLog });
+    // v0.3.0 轻量化：热上下文不再传 embedder，纯关键词检索
+    const provider = createHotContextProvider({ store, config: makeConfig({ hotContextBudgetChars: 40 }), log: silentLog });
     const controller = new AbortController();
     const block = await provider.provide({
       source: "conversation",
@@ -123,8 +148,17 @@ describe("工具与检索层（源码级）", () => {
     expect(block).toContain("[岁月涟漪·记忆]");
     expect(block!.length).toBeLessThanOrEqual(40);
 
+    // 访问加权：被注入的记录热度上升，未注入的不动
+    const [injected, untouched] = store.all();
+    expect(injected.content).toContain("手冲咖啡");
+    expect(injected.heat).toBeGreaterThan(0);
+    expect(typeof injected.lastTouchedAt).toBe("number");
+    expect(untouched.heat).toBeUndefined();
+    // 等热度节流落盘结束，避免清理临时目录时撞上在途写入
+    await store.awaitPendingWrites();
+
     const empty = new MemoryStore(storage.storage, silentLog);
-    const p2 = createHotContextProvider({ store: empty, config: makeConfig(), embedder: { id: "none", embed: async () => null }, log: silentLog });
+    const p2 = createHotContextProvider({ store: empty, config: makeConfig(), log: silentLog });
     expect(await p2.provide({ source: "conversation", mode: "chat", userText: "anything", signal: controller.signal })).toBe("");
 
     const aborted = new AbortController();
