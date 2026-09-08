@@ -1,10 +1,17 @@
 import type { CyrenePlugin, PluginContext, PluginTurnFinishedEvent } from "@playa0v0/cyrene-plugin-sdk";
-import { loadConfig } from "./config";
+import {
+  DEFAULT_CONSOLIDATION_ENABLED,
+  DEFAULT_CONSOLIDATION_IDLE_MINUTES,
+  DEFAULT_CONSOLIDATION_MAX_RECORDS,
+  loadConfig,
+} from "./config";
 import { MemoryStore } from "./core/store";
+import { loadInsights } from "./core/insights";
 import { TaskQueue } from "./pipeline/queue";
 import type { IngestTask } from "./core/types";
 import { createTurnIngestor } from "./pipeline/ingest";
 import { createEmbedderByProvider } from "./pipeline/embedder";
+import { createConsolidator } from "./pipeline/consolidate";
 import { createHotContextProvider } from "./provider/hot-context";
 import { createRecallTool } from "./tools/recall";
 import { createSearchTool } from "./tools/search";
@@ -20,6 +27,12 @@ import { createLogger } from "./logger";
  */
 let activeCtx: PluginContext | null = null;
 let winManager: WindowManager | null = null;
+
+/** 启动补跑延迟：给宿主启动期（加载会话/模型/窗口）让路，2 分钟后再补跑整合。 */
+const REGISTER_CATCHUP_DELAY_MS = 2 * 60_000;
+
+/** 后台队列任务：轮次摄入任务，或 autoDream 整合的哨兵标记（字符串）。 */
+type QueueTask = IngestTask | "autoDream";
 
 const plugin: CyrenePlugin = {
   async register(ctx) {
@@ -45,45 +58,123 @@ const plugin: CyrenePlugin = {
       createHotContextProvider({ store, config, log }),
     );
 
-    // 轮次摄入管线：turn:finished 是旁路通知（宿主不等），必须自己排队异步做
+    // 轮次摄入管线 + autoDream 空闲整合：turn:finished 是旁路通知（宿主不等），
+    // 必须自己排队异步做；整合与摄入复用同一条串行队列，天然互斥不抢并发。
     const { conversations, llm } = ctx.deps;
     if (!conversations || !llm) {
-      // manifest 已声明依赖，正常不会走到这里；防御宿主异常注入
-      log.warn("宿主服务缺失（conversations/llm），摄入管线停用");
-    }
-    const ingest = createTurnIngestor({
-      conversations: conversations!,
-      llm: llm!,
-      embedder,
-      store,
-      config,
-      log,
-    });
-    const queue = new TaskQueue<IngestTask>({ signal: ctx.signal, log });
-    ctx.events.on("host:turn:finished", (event: PluginTurnFinishedEvent) => {
-      // 只收桌面成功轮次；finalMessageId 只有宿主确认落盘后才存在，非成功终态不得自己补
-      if (event.source !== "desktop" || event.status !== "success") return;
-      if (!event.finalMessageId || !event.inputMessageId) return;
-      if (!conversations) return;
-      // 只投队列、绝不 await：enqueue 的 promise 要等任务跑完才 resolve，
-      // await 它会让监听器超过宿主 5 秒上限（实测会刷「异步执行超时」日志）。
-      // enqueue 从不 reject，void 丢弃 promise 即可。
-      void queue.enqueue(
-        {
-          conversationId: event.conversationId,
-          turnEventId: event.eventId,
-          inputMessageId: event.inputMessageId,
-          finalMessageId: event.finalMessageId,
-          runId: event.runId,
+      // manifest 已声明依赖，正常不会走到这里；防御宿主异常注入。
+      // 摄入与整合都依赖 llm，缺失时两者一起停用。
+      log.warn("宿主服务缺失（conversations/llm），摄入管线与空闲整合停用");
+    } else {
+      const ingest = createTurnIngestor({
+        conversations,
+        llm,
+        embedder,
+        store,
+        config,
+        log,
+      });
+      const queue = new TaskQueue<QueueTask>({ signal: ctx.signal, log });
+      // 整合配置字段可选（旧存档无此键），与 heat* 同口径回退默认常量
+      const consolidationEnabled =
+        config.consolidationEnabled ?? DEFAULT_CONSOLIDATION_ENABLED;
+      const consolidationIdleMinutes =
+        config.consolidationIdleMinutes ?? DEFAULT_CONSOLIDATION_IDLE_MINUTES;
+      // 整合器：run 内部吞一切异常返回 null（洞察是可再生派生数据），绝不波及主流程
+      const consolidator = createConsolidator({
+        store,
+        llm,
+        embedder,
+        storage: ctx.storage,
+        maxRecords: config.consolidationMaxRecords ?? DEFAULT_CONSOLIDATION_MAX_RECORDS,
+        log,
+      });
+
+      // single-flight 空闲整合：防抖句柄与在途标记只在这条链上动
+      let consolidationTimer: ReturnType<typeof setTimeout> | null = null;
+      let catchupTimer: ReturnType<typeof setTimeout> | null = null;
+      let consolidationInFlight = false;
+
+      // 空闲触发的唯一入队口：总开关 + 无在途 + 未中止三重守卫；
+      // 摄入完成防抖与启动补跑都走这里，保证 single-flight 语义完全一致。
+      const runConsolidation = (): void => {
+        if (!consolidationEnabled || consolidationInFlight || ctx.signal.aborted) return;
+        consolidationInFlight = true;
+        void queue.enqueue("autoDream", async (_task, signal) => {
+          try {
+            await consolidator.run(signal);
+          } finally {
+            consolidationInFlight = false;
+          }
+        });
+      };
+
+      const scheduleConsolidation = (): void => {
+        if (consolidationTimer !== null) clearTimeout(consolidationTimer);
+        consolidationTimer = setTimeout(runConsolidation, consolidationIdleMinutes * 60_000);
+      };
+
+      ctx.events.on("host:turn:finished", (event: PluginTurnFinishedEvent) => {
+        // 只收桌面成功轮次；finalMessageId 只有宿主确认落盘后才存在，非成功终态不得自己补
+        if (event.source !== "desktop" || event.status !== "success") return;
+        if (!event.finalMessageId || !event.inputMessageId) return;
+        // 只投队列、绝不 await：enqueue 的 promise 要等任务跑完才 resolve，
+        // await 它会让监听器超过宿主 5 秒上限（实测会刷「异步执行超时」日志）。
+        // enqueue 从不 reject，void 丢弃 promise 即可。
+        void queue.enqueue(
+          {
+            conversationId: event.conversationId,
+            turnEventId: event.eventId,
+            inputMessageId: event.inputMessageId,
+            finalMessageId: event.finalMessageId,
+            runId: event.runId,
+          },
+          async (task, signal) => {
+            try {
+              // 该处理器只会收到摄入任务；字符串哨兵只在 autoDream 入队口出现
+              if (typeof task !== "string") await ingest(task, signal);
+            } finally {
+              // 摄入真正跑完（含失败）才重置防抖：静默满 consolidationIdleMinutes
+              // 分钟才允许整合。重置发生在队列任务回调内部，不占宿主 5 秒窗口。
+              scheduleConsolidation();
+            }
+          },
+        );
+      });
+
+      // 启动补跑：从未整合（lastRunAt === 0）或距上次已超过空闲间隔，就沿
+      // 同一条 single-flight 路径补跑一次；延迟 2 分钟给宿主启动期让路。
+      try {
+        const insights = loadInsights(ctx.storage);
+        const idleMs = consolidationIdleMinutes * 60_000;
+        if (insights.lastRunAt === 0 || Date.now() - insights.lastRunAt > idleMs) {
+          catchupTimer = setTimeout(runConsolidation, REGISTER_CATCHUP_DELAY_MS);
+        }
+      } catch (err) {
+        // loadInsights 自身 fail-safe，这里兜底只为 register 绝不抛
+        log.warn("启动补跑判定失败（跳过补跑）:", err);
+      }
+
+      // 生命周期收口：signal 中止时清掉全部定时器与在途标记（与窗口清理同风格）
+      ctx.signal.addEventListener(
+        "abort",
+        () => {
+          if (consolidationTimer !== null) {
+            clearTimeout(consolidationTimer);
+            consolidationTimer = null;
+          }
+          if (catchupTimer !== null) {
+            clearTimeout(catchupTimer);
+            catchupTimer = null;
+          }
+          consolidationInFlight = false;
         },
-        async (task, signal) => {
-          await ingest(task, signal);
-        },
+        { once: true },
       );
-    });
+    }
 
     // 图谱窗口 IPC + 窗口管理器；open 由宿主插件卡片的「打开」按钮触发
-    registerUiIpc(ctx, { store, log });
+    registerUiIpc(ctx, { store, storage: ctx.storage, log });
     winManager = createWindowManager({ log });
     ctx.onDispose(() => {
       winManager?.close();

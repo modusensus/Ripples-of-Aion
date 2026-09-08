@@ -26,7 +26,7 @@ ripples-of-aion/
 │   ├── provider/         # hot-context prompt provider
 │   ├── ui/               # graph window, private IPC, panel
 │   └── index.ts          # register / unregister / open
-├── tests/                # vitest suite (7 suites / 63 cases)
+├── tests/                # vitest suite (9 suites / 89 cases)
 ├── scripts/              # build.mjs / check-sync.mjs / deploy.mjs
 └── dist/                 # build output (gitignored, never hand-edited)
 ```
@@ -175,7 +175,7 @@ ripples-of-aion/
 │   ├── provider/         # hot-context prompt provider
 │   ├── ui/               # 图谱窗口、私有 IPC、面板
 │   └── index.ts          # register / unregister / open
-├── tests/                # vitest 测试（7 套件 / 63 用例）
+├── tests/                # vitest 测试（9 套件 / 89 用例）
 ├── scripts/              # build.mjs / check-sync.mjs / deploy.mjs
 └── dist/                 # 构建产物（gitignore，禁止手改）
 ```

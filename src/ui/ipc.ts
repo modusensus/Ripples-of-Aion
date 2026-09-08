@@ -1,4 +1,5 @@
-import type { PluginContext } from "@playa0v0/cyrene-plugin-sdk";
+import type { PluginContext, PluginStorage } from "@playa0v0/cyrene-plugin-sdk";
+import { loadInsights } from "../core/insights";
 import type { MemoryStore } from "../core/store";
 import type { Logger } from "../logger";
 
@@ -11,6 +12,9 @@ const FORGET_CHANNEL = "forget";
 
 /** get-state 最多返回多少条最近记忆。 */
 const RECENT_LIMIT = 20;
+
+/** 洞察摘要各截前多少条：面板首屏够用，全量留给后续 UI 扩展阶段。 */
+const INSIGHTS_SUMMARY_LIMIT = 8;
 
 /** get-state 返回的单条记忆：只挑面板需要的字段，避免把 embedding 等大对象送进 IPC。 */
 interface PanelMemory {
@@ -28,29 +32,48 @@ interface PanelClaim {
   validUntil: number | null;
 }
 
+/** get-state 返回的洞察摘要（autoDream 产物）：簇只给标签+规模，矛盾只给摘要。 */
+interface PanelInsights {
+  lastRunAt: number;
+  clusters: Array<{ label: string; size: number }>;
+  conflicts: Array<{ note: string }>;
+}
+
 interface PanelState {
   total: number;
   active: number;
   memories: PanelMemory[];
   claims: PanelClaim[];
+  insights: PanelInsights;
 }
 
+/** 洞察空形态：从未整合过（lastRunAt === 0）或读取失败时的标准初始态。 */
+const EMPTY_INSIGHTS: PanelInsights = { lastRunAt: 0, clusters: [], conflicts: [] };
+
 /** 拉取失败/异常时的兜底状态，面板据此显示空态而不是报错弹窗。 */
-const EMPTY_STATE: PanelState = { total: 0, active: 0, memories: [], claims: [] };
+const EMPTY_STATE: PanelState = {
+  total: 0,
+  active: 0,
+  memories: [],
+  claims: [],
+  insights: EMPTY_INSIGHTS,
+};
 
 export interface UiIpcDeps {
   store: MemoryStore;
+  /** 洞察读取：autoDream 产物独立于记忆本体，走插件 KV。 */
+  storage: PluginStorage;
   log: Logger;
 }
 
 /**
  * 注册记忆图谱面板的两个 IPC channel：
- * - get-state：统计 + 最近 20 条活跃记忆；
+ * - get-state：统计 + 最近 20 条活跃记忆 + autoDream 洞察摘要；
  * - forget：按 id 软删一条记忆。
  * 整体 fail-safe：读失败返回空状态、删失败返回 { ok: false }，只 warn 不抛。
  */
 export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
-  const { store, log } = deps;
+  const { store, storage, log } = deps;
 
   const getState = async (): Promise<PanelState> => {
     try {
@@ -80,7 +103,24 @@ export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
           });
         }
       }
-      return { total: stats.total, active: stats.active, memories, claims };
+      // autoDream 洞察摘要：loadInsights 读不到/坏数据自身回退空洞察，
+      // 这里再兜一层 try/catch，保证 get-state 绝不因洞察抛异常。
+      let insights = EMPTY_INSIGHTS;
+      try {
+        const loaded = loadInsights(storage);
+        insights = {
+          lastRunAt: loaded.lastRunAt,
+          clusters: loaded.clusters
+            .slice(0, INSIGHTS_SUMMARY_LIMIT)
+            .map((cluster) => ({ label: cluster.label, size: cluster.recordIds.length })),
+          conflicts: loaded.conflicts
+            .slice(0, INSIGHTS_SUMMARY_LIMIT)
+            .map((conflict) => ({ note: conflict.note })),
+        };
+      } catch (err) {
+        log.warn("读取洞察失败，返回空洞察：", err);
+      }
+      return { total: stats.total, active: stats.active, memories, claims, insights };
     } catch (err) {
       log.warn("get-state 失败，返回空状态：", err);
       return EMPTY_STATE;

@@ -73,6 +73,22 @@ describe("插件契约（构建产物）", () => {
     await ctx.dispose();
   });
 
+  it("get-state 返回的 state 含 insights 字段且默认空形态", async () => {
+    const ctx = createMockContext({ pluginId: PLUGIN_ID, deps: makeDeps() });
+    await plugin.register(ctx);
+    const getState = ctx.ipcChannels.get("get-state");
+    expect(getState).toBeTruthy();
+
+    // mock storage 没有 insights key：按「从未整合」返回空形态
+    const state = (await getState!()) as {
+      insights: { lastRunAt: number; clusters: unknown[]; conflicts: unknown[] };
+    };
+    expect(state.insights.lastRunAt).toBe(0);
+    expect(state.insights.clusters).toEqual([]);
+    expect(state.insights.conflicts).toEqual([]);
+    await ctx.dispose();
+  });
+
   it("unregister 幂等且可重复调用", async () => {
     const ctx = createMockContext({ pluginId: PLUGIN_ID });
     await plugin.register(ctx);
