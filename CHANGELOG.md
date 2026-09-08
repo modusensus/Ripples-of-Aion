@@ -3,6 +3,27 @@
 本插件遵循 [SemVer](https://semver.org/lang/zh-CN/)。版本号三段式由 `manifest.json`
 与 `package.json` 同步维护——发布前跑 `npm run check-sync` 防止产物静默失效。
 
+## [0.4.1] - 2026-09-09
+
+### 变更
+
+- 面板改为无外框窗口：粉色 UI 不再被系统原生灰框打断；顶部自绘标题栏整条可
+  拖动（关闭按钮单独豁免拖动区，双击走系统默认最大化/还原），原标题行融入
+  标题栏省出一行纵向空间
+- 本版本界面改动由 Cyrene 仓库维护者 Playa-0v0 贡献（[PR #12](https://github.com/modusensus/Ripples-of-Aion/pull/12)）
+
+### 修复
+
+- 页面底部白带：`body` 的 `min-height` 在 `border-box` 下比视口矮 42px，
+  渐变背景被截断后按平铺重复露出近白底色；改为正好 `100vh`
+
+### 兼容性
+
+- 纯界面层改动，数据格式不变；无外框窗口的移动/缩放仍走 v0.3.1 的
+  窗口边界持久化
+- 仓库基建：CI 检查名固定为 `test`，与 main 分支 ruleset 的必需检查上下文
+  对齐（此前所有 PR 都会被永久 BLOCKED，直推 main 不受影响）
+
 ## [0.4.0] - 2026-09-08
 
 ### 新增

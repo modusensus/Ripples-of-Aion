@@ -5,7 +5,7 @@
 <h1 align="center">⏳ 岁月涟漪 · Ripples of Aion</h1>
 
 <p align="center">
-  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.4.0-ff69b4?style=flat-square" alt="version"></a>
+  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.4.1-ff69b4?style=flat-square" alt="version"></a>
   <a href="https://github.com/modusensus/Ripples-of-Aion/actions"><img src="https://img.shields.io/github/actions/workflow/status/modusensus/Ripples-of-Aion/test.yml?style=flat-square&label=CI" alt="CI"></a>
   <img src="https://img.shields.io/badge/tests-89%20passed-ff69b4?style=flat-square" alt="tests">
   <a href="https://codecov.io/gh/modusensus/Ripples-of-Aion"><img src="https://img.shields.io/codecov/c/github/modusensus/Ripples-of-Aion/main?style=flat-square&color=ff69b4&label=coverage" alt="coverage"></a>
