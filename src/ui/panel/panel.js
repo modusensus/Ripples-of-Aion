@@ -8,6 +8,7 @@ const GET_STATE_CHANNEL = "plugin:ripples-of-aion:get-state";
 const FORGET_CHANNEL = "plugin:ripples-of-aion:forget";
 
 const statsEl = document.getElementById("stats");
+const closeBtn = document.getElementById("close-btn");
 const claimListEl = document.getElementById("claim-list");
 const listEl = document.getElementById("memory-list");
 
@@ -204,5 +205,8 @@ async function refresh() {
     setEmpty(listEl, "状态拉取失败，请重开窗口");
   }
 }
+
+// 自绘标题栏关闭按钮：面板本身就是 BrowserWindow 页面，close() 直接关窗
+closeBtn.addEventListener("click", () => window.close());
 
 refresh();
