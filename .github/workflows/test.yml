@@ -8,7 +8,10 @@ on:
 
 jobs:
   test:
-    name: Typecheck / Test / Build (node ${{ matrix.node-version }})
+    # 必需检查上下文按「检查运行名」匹配而非 job id：main 的 ruleset 要求名为
+    # test 的检查，job 显示名必须固定为这个字面量（matrix 两腿同名，
+    # 规则语义 = 两条腿都成功才满足）。改名会让所有 PR 永远 BLOCKED。
+    name: test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
