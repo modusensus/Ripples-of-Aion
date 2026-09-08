@@ -113,7 +113,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 | **v0.2.0** | 实体抽取 + `valid_until` 属性时间轴 + 时间轴工具 + 面板改版 + id 更名 | ✅ |
 | **v0.3.0** | 主观 heat 衰减（检索命中/同实体提及加权）+ 热上下文轻量化（关键词 only）+ 属性别名归一化 + moments-post 注入 | ✅ |
 | **v0.4.0** | autoDream 空闲整合（聚类 + 冲突标记 + 启动补跑） | 🚧 |
-| **v0.5.0** | LLM rerank 精排 + 图谱窗口可视化增强 | 🚧 |
+| **v0.5.0** | LLM rerank 精排 + 图谱窗口大改版：分区架构（总览/时间轴/记忆图谱/检索台/设置）+ 空间扩展与视觉升级 | 🚧 |
 | **长期** | 对接 CyreneCore Memory API（能力清单见 [docs/memory-api-wishlist.md](docs/memory-api-wishlist.md)） | 📋 |
 
 **与 CyreneCore 的分工**（2026-09 与维护者达成的共识，见 [Cyrene-Plugins#1](https://github.com/Playa-0v0/Cyrene-Plugins/issues/1)）：核心将沿 LLM Wiki 思路提供通用、稳定的记忆基础设施（客观知识页）；岁月涟漪专注**伴侣式主观记忆层**——heat、时间轴、自动整理、可视化与更具角色感的记忆策略。v0.3/v0.4 按自有存储推进；待核心 Memory API 定型后逐步迁移到公共接口，两者不互斥。
@@ -224,7 +224,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 | **v0.2.0** | Entity extraction + `valid_until` attribute timeline + timeline tool + panel redesign + id rename | ✅ |
 | **v0.3.0** | Subjective heat decay (access/mention boost) + lightweight hot context (keyword-only) + attribute alias normalization + moments-post injection | ✅ |
 | **v0.4.0** | autoDream idle consolidation (clustering + conflict marking + catch-up on boot) | 🚧 |
-| **v0.5.0** | LLM rerank + graph window visualization | 🚧 |
+| **v0.5.0** | LLM rerank + panel redesign: sectioned layout (overview / timeline / graph / search bench / settings) with more space and visual polish | 🚧 |
 | **Long term** | Integrate with the CyreneCore Memory API (capability wishlist in [docs/memory-api-wishlist.md](docs/memory-api-wishlist.md)) | 📋 |
 
 **Division of labor with CyreneCore** (consensus reached with the maintainer in 2026-09, see [Cyrene-Plugins#1](https://github.com/Playa-0v0/Cyrene-Plugins/issues/1)): the core will provide generic, stable memory infrastructure along the LLM Wiki direction (objective knowledge pages); Ripples of Aion focuses on the **companion-flavored subjective memory layer** — heat, timelines, auto-consolidation, visualization, and more characterful memory strategies. v0.3/v0.4 continue on private storage; once the core Memory API settles, migration to the public interface can happen gradually — the two are not mutually exclusive.
