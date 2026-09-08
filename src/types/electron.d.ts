@@ -14,6 +14,8 @@ declare module "electron" {
     minHeight?: number;
     title?: string;
     autoHideMenuBar?: boolean;
+    /** 无外框窗口：标题栏由面板自绘。 */
+    frame?: boolean;
     /** 窗口底色，避免面板加载前闪黑。 */
     backgroundColor?: string;
     webPreferences?: {

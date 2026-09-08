@@ -9,13 +9,45 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 18px 16px 24px;
+      padding: 0 16px 24px;
       font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
       background: linear-gradient(175deg, #fff8fb 0%, #fdeef5 55%, #fbe3ee 100%);
       color: #5c4650;
-      min-height: calc(100vh - 42px);
+      /* 必须正好等于视口高：矮一截的话 body 背景在根部截断，
+         渐变按平铺重复露出起始的近白色，页面底部会出现一条白带 */
+      min-height: 100vh;
     }
-    header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+    /* 无框窗口的自绘标题栏：整条是拖动区（负 margin 撑满窗口宽度），
+       关闭按钮单独豁免 no-drag；双击拖动区走系统默认的最大化/还原 */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 0 -16px 4px;
+      padding: 0 10px 0 16px;
+      height: 42px;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .titlebar-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+    #close-btn {
+      -webkit-app-region: no-drag;
+      flex: none;
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 9px;
+      background: transparent;
+      color: #c2788f;
+      font-size: 14px;
+      font-family: system-ui, sans-serif;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    #close-btn:hover { background: #fdeef4; color: #d96a90; }
+    #close-btn:active { background: #f9dce8; }
     h1 {
       font-size: 16px;
       margin: 0;
@@ -136,8 +168,11 @@
 </head>
 <body>
   <header>
-    <h1>岁月涟漪</h1>
-    <span class="header-sub">Ripples of Aion · 记忆图谱</span>
+    <div class="titlebar-text">
+      <h1>岁月涟漪</h1>
+      <span class="header-sub">Ripples of Aion · 记忆图谱</span>
+    </div>
+    <button id="close-btn" type="button" title="关闭">✕</button>
   </header>
   <p id="stats"><span class="pill">加载中…</span></p>
 

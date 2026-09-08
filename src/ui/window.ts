@@ -121,6 +121,8 @@ export function createWindowManager(deps: WindowManagerDeps): WindowManager {
         minHeight: WINDOW_MIN_HEIGHT,
         title: WINDOW_TITLE,
         autoHideMenuBar: true,
+        // 无外框：标题栏由面板自绘（拖动区 + 关闭按钮），与面板粉色 UI 一体
+        frame: false,
         backgroundColor: "#fff8fb",
         // 面板加载的是随插件分发的受信静态页，panel.js 需要直接使用 ipcRenderer。
         webPreferences: { nodeIntegration: true, contextIsolation: false },
