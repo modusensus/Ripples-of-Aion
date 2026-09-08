@@ -6,8 +6,12 @@
 declare module "electron" {
   /** BrowserWindow 构造参数（仅列出本插件用到的字段）。 */
   export interface BrowserWindowConstructorOptions {
+    x?: number;
+    y?: number;
     width?: number;
     height?: number;
+    minWidth?: number;
+    minHeight?: number;
     title?: string;
     autoHideMenuBar?: boolean;
     /** 窗口底色，避免面板加载前闪黑。 */
@@ -16,6 +20,14 @@ declare module "electron" {
       nodeIntegration?: boolean;
       contextIsolation?: boolean;
     };
+  }
+
+  /** 窗口边界（screen 工作区收敛与持久化用）。 */
+  export interface Rectangle {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
   }
 
   export class BrowserWindow {
@@ -28,9 +40,16 @@ declare module "electron" {
     close(): void;
     isDestroyed(): boolean;
     isMinimized(): boolean;
+    isMaximized(): boolean;
+    getBounds(): Rectangle;
     /** 最小事件订阅：closed 等一律用字符串事件名。 */
     on(event: string, listener: (...args: unknown[]) => void): void;
   }
+
+  export const screen: {
+    /** 主显示器工作区（刨去任务栏），窗口边界收敛的参照系。 */
+    getPrimaryDisplay(): { workArea: Rectangle };
+  };
 
   export const ipcMain: {
     /** 注册 invoke 处理器（渲染进程 ipcRenderer.invoke 的对端）。 */

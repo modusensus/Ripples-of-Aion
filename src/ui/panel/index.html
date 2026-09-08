@@ -123,6 +123,15 @@
     .forget-btn:disabled { opacity: 0.45; cursor: default; }
     .empty { justify-content: center; color: #c9a2b0; }
     footer { margin-top: 16px; text-align: center; font-size: 10.5px; color: #dcb6c3; }
+    /* 布局：窄视口单列堆叠；宽视口（默认窗口 720+）时间轴与最近记忆并排 */
+    .layout { display: grid; grid-template-columns: 1fr; }
+    @media (min-width: 720px) {
+      .layout {
+        grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+        gap: 0 14px;
+        align-items: start;
+      }
+    }
   </style>
 </head>
 <body>
@@ -132,13 +141,19 @@
   </header>
   <p id="stats"><span class="pill">加载中…</span></p>
 
-  <h2>实体时间轴</h2>
-  <div id="claim-list" class="card"><div class="entity-block"><div class="attr-line empty">加载中…</div></div></div>
+  <main class="layout">
+    <section>
+      <h2>实体时间轴</h2>
+      <div id="claim-list" class="card"><div class="entity-block"><div class="attr-line empty">加载中…</div></div></div>
+    </section>
 
-  <h2>最近记忆</h2>
-  <ul id="memory-list" class="card">
-    <li class="empty">加载中…</li>
-  </ul>
+    <section>
+      <h2>最近记忆</h2>
+      <ul id="memory-list" class="card">
+        <li class="empty">加载中…</li>
+      </ul>
+    </section>
+  </main>
 
   <footer>岁月无声，涟漪有痕</footer>
   <script src="./panel.js"></script>
