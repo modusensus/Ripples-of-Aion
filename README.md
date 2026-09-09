@@ -128,6 +128,14 @@ npm run build
 npm run deploy     # 构建并安装到本机 Cyrene
 ```
 
+## 🙏 贡献者
+
+感谢每一位为岁月涟漪贡献过代码的伙伴：
+
+| 贡献者 | 贡献内容 |
+|------|------|
+| [@Playa-0v0](https://github.com/Playa-0v0) | 面板无外框窗口 + 自绘标题栏 + 底部白带修复（v0.4.1） |
+
 ## 📜 License
 
 MIT
@@ -238,6 +246,14 @@ npm test           # 89 tests
 npm run build
 npm run deploy     # build + install into local Cyrene
 ```
+
+## 🙏 Contributors
+
+Thanks to everyone who contributed code to Ripples of Aion:
+
+| Contributor | Contribution |
+|------|------|
+| [@Playa-0v0](https://github.com/Playa-0v0) | Frameless panel window + custom titlebar + bottom white-band fix (v0.4.1) |
 
 ## 📜 License
 
