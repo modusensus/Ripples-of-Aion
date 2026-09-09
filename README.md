@@ -5,9 +5,9 @@
 <h1 align="center">⏳ 岁月涟漪 · Ripples of Aion</h1>
 
 <p align="center">
-  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.4.1-ff69b4?style=flat-square" alt="version"></a>
+  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.4.2-ff69b4?style=flat-square" alt="version"></a>
   <a href="https://github.com/modusensus/Ripples-of-Aion/actions"><img src="https://img.shields.io/github/actions/workflow/status/modusensus/Ripples-of-Aion/test.yml?style=flat-square&label=CI" alt="CI"></a>
-  <img src="https://img.shields.io/badge/tests-89%20passed-ff69b4?style=flat-square" alt="tests">
+  <img src="https://img.shields.io/badge/tests-93%20passed-ff69b4?style=flat-square" alt="tests">
   <a href="https://codecov.io/gh/modusensus/Ripples-of-Aion"><img src="https://img.shields.io/codecov/c/github/modusensus/Ripples-of-Aion/main?style=flat-square&color=ff69b4&label=coverage" alt="coverage"></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-ff69b4?style=flat-square&logo=typescript&logoColor=white" alt="typescript">
   <img src="https://img.shields.io/badge/node-22%2B-ff69b4?style=flat-square&logo=nodedotjs&logoColor=white" alt="node">
@@ -123,7 +123,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 89 个测试
+npm test           # 93 个测试
 npm run build
 npm run deploy     # 构建并安装到本机 Cyrene
 ```
@@ -242,7 +242,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 89 tests
+npm test           # 93 tests
 npm run build
 npm run deploy     # build + install into local Cyrene
 ```

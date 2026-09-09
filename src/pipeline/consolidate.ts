@@ -94,20 +94,52 @@ function union(parent: number[], a: number, b: number): void {
   if (ra !== rb) parent[rb] = ra;
 }
 
+/** 记录的关联实体：顶层 entities 与 entityClaims 的实体名取并集（去重、剔非字符串）。
+ *  实测（v0.4.1 库 96 条）抽取器几乎只填 claims 不填顶层 entities——只看顶层
+ *  字段会导致共现图为空，autoDream 永远空转。 */
+function entitiesOf(record: MemoryRecord): string[] {
+  const seen = new Set<string>();
+  const collect = (candidates: unknown): void => {
+    if (!Array.isArray(candidates)) return;
+    for (const entity of candidates) {
+      if (typeof entity === "string" && entity !== "") seen.add(entity);
+    }
+  };
+  collect(record.entities);
+  collect((record.entityClaims ?? []).map((claim) => claim.entity));
+  return [...seen];
+}
+
+/** 枢纽判定：实体出现在超过这个比例的候选记录中即视为背景枢纽（如陪伴记忆库
+ *  里的「用户」），不参与共现建图——它把所有记录连成一团，聚类失去区分度；
+ *  记录本身仍可通过其它实体入簇。 */
+const HUB_FRACTION = 0.5;
+/** 枢纽的绝对下限：小样本里三五条共享是正常判别信号，不足这个量不判枢纽。 */
+const HUB_MIN_RECORDS = 8;
+
 /**
- * 实体共现贪心聚类：共享任一实体名的记录并入同一连通分量。
+ * 实体共现贪心聚类：共享任一（非枢纽）实体名的记录并入同一连通分量。
  * 无实体的记录不入簇（不强行聚类）；分量不足 2 条直接丢弃。
  * 返回簇内记录下标数组，顺序即传入 records 的顺序（热度序，稳定可复现）。
  */
 function entityClustersOf(records: MemoryRecord[]): number[][] {
+  // 第一遍：统计实体频次，划出枢纽实体（频次按 entitiesOf 口径，与建图一致）。
+  // 相对比例 + 绝对下限双条件：大库里过半即枢纽，小样本（测试/新库）不误伤。
+  const frequency = new Map<string, number>();
+  for (const record of records) {
+    for (const entity of entitiesOf(record)) {
+      frequency.set(entity, (frequency.get(entity) ?? 0) + 1);
+    }
+  }
+  const hubMin = Math.max(Math.ceil(records.length * HUB_FRACTION), HUB_MIN_RECORDS);
+  const isHub = (entity: string): boolean => (frequency.get(entity) ?? 0) >= hubMin;
+
+  // 第二遍：仅用非枢纽实体建连通分量
   const parent = records.map((_, i) => i);
   const firstByEntity = new Map<string, number>();
   for (let i = 0; i < records.length; i += 1) {
-    const entities = records[i].entities;
-    if (!Array.isArray(entities)) continue;
-    for (const entity of entities) {
-      // 实体名是 LLM 派生数据，重放时类型不可信；非字符串静默跳过
-      if (typeof entity !== "string" || entity === "") continue;
+    for (const entity of entitiesOf(records[i])) {
+      if (isHub(entity)) continue;
       const first = firstByEntity.get(entity);
       if (first === undefined) firstByEntity.set(entity, i);
       else union(parent, first, i);
@@ -198,13 +230,11 @@ function candidatePairsOf(
     seen.add(key);
     pairs.push([lo, hi]);
   };
-  // 同实体对：实体名按原文精确匹配（与 store.bumpMentionedEntities 同口径）
+  // 同实体对：实体名按原文精确匹配（与 store.bumpMentionedEntities 同口径）；
+  // 实体来源用 entitiesOf（claims 实体计入），否则候选对与聚类一样会空转
   const byEntity = new Map<string, number[]>();
   for (let i = 0; i < records.length; i += 1) {
-    const entities = records[i].entities;
-    if (!Array.isArray(entities)) continue;
-    for (const entity of entities) {
-      if (typeof entity !== "string" || entity === "") continue;
+    for (const entity of entitiesOf(records[i])) {
       const indexes = byEntity.get(entity);
       if (indexes) indexes.push(i);
       else byEntity.set(entity, [i]);

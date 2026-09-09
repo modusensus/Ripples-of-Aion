@@ -453,4 +453,81 @@ describe("autoDream 整合引擎（createConsolidator）", () => {
     expect(loadInsights(brokenStorage).lastRunAt).toBe(123);
     expect(loadInsights(noopStorage).lastRunAt).toBe(123);
   });
+
+  it("claims 实体参与聚类：只填 entityClaims 不填 entities 的记录照常成簇（v0.4.1 库空转回归）", async () => {
+    const records = [
+      makeRecord({
+        content: "为昔涟开发记忆插件的第一版",
+        entityClaims: [{ entity: "记忆插件", attribute: "项目", value: "开发中" }],
+      }),
+      makeRecord({
+        content: "记忆插件补上了 autoDream",
+        entityClaims: [{ entity: "记忆插件", attribute: "进度", value: "autoDream" }],
+      }),
+      makeRecord(),
+      makeRecord(),
+      makeRecord(),
+    ];
+    const { llm, calls } = recordLlm('{"clusters":[{"index":0,"label":"记忆插件进展"}],"conflicts":[]}');
+    const { consolidator } = await makeConsolidator({ records, llm });
+    const result = await consolidator.run(new AbortController().signal);
+    expect(result).not.toBeNull();
+    expect(result!.clusters).toHaveLength(1);
+    expect(result!.clusters[0].label).toBe("记忆插件进展");
+    expect(userPromptOf(calls)).toContain("为昔涟开发记忆插件的第一版");
+  });
+
+  it("候选矛盾对计入 claims 实体：同实体对经 claims 命中并送审", async () => {
+    const records = [
+      makeRecord({
+        content: "伙伴在筹备一场重要考试",
+        entityClaims: [{ entity: "用户", attribute: "日程", value: "备考中" }],
+      }),
+      makeRecord({
+        content: "伙伴的考试定在十二月",
+        entityClaims: [{ entity: "用户", attribute: "日程", value: "12月考试" }],
+      }),
+      makeRecord(),
+      makeRecord(),
+      makeRecord(),
+    ];
+    const { llm, calls } = recordLlm('{"clusters":[],"conflicts":[{"a":0,"b":1,"note":"考试时间表述不一致"}]}');
+    const { consolidator } = await makeConsolidator({ records, llm });
+    const result = await consolidator.run(new AbortController().signal);
+    expect(result).not.toBeNull();
+    expect(result!.conflicts).toHaveLength(1);
+    expect(result!.conflicts[0].note).toBe("考试时间表述不一致");
+  });
+
+  it("枢纽实体阻尼：过半记录共有的实体不建图，聚非枢纽实体", async () => {
+    const records: MemoryRecord[] = [];
+    for (let k = 0; k < 10; k += 1) {
+      records.push(
+        makeRecord({
+          content: k < 3 ? `记忆插件相关记录${k}` : `日常记录${k}`,
+          entities: ["用户", ...(k < 3 ? ["记忆插件"] : [])],
+        }),
+      );
+    }
+    const { llm, calls } = recordLlm('{"clusters":[{"index":0,"label":"记忆插件"}],"conflicts":[]}');
+    const { consolidator } = await makeConsolidator({ records, llm });
+    const result = await consolidator.run(new AbortController().signal);
+    expect(result).not.toBeNull();
+    // 枢纽「用户」（10/10）没有把 10 条连成一团，簇只围绕「记忆插件」的 3 条
+    expect(result!.clusters).toHaveLength(1);
+    expect(result!.clusters[0].recordIds).toHaveLength(3);
+  });
+
+  it("纯枢纽库：聚类为空但候选对照常送审（冲突候选不做枢纽阻尼）", async () => {
+    // 10 条全部共享「用户」：≥50% 且 ≥8 条（绝对下限），判枢纽、聚类为空；
+    // 候选对不参与枢纽阻尼，照常送审
+    const records = Array.from({ length: 10 }, (_, k) => makeRecord({ content: `记录${k}`, entities: ["用户"] }));
+    const { llm, calls } = recordLlm('{"clusters":[],"conflicts":[]}');
+    const { consolidator } = await makeConsolidator({ records, llm });
+    const result = await consolidator.run(new AbortController().signal);
+    expect(result).not.toBeNull();
+    expect(result!.clusters).toHaveLength(0);
+    // 候选对存在（同实体两两组合，cap 上限内），所以 LLM 被调用而非提前跳过
+    expect(calls).toHaveLength(1);
+  });
 });
