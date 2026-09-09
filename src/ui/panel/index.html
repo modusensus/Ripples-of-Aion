@@ -5,51 +5,51 @@
   <title>岁月涟漪 · 记忆图谱</title>
   <style>
     /* 昔涟粉风格：珍珠白底 + 樱粉强调，圆角软阴影 */
-    :root { color-scheme: light; }
+    :root {
+      color-scheme: light;
+      --ink: #5c4650;
+      --ink-soft: #8a6b76;
+      --pink: #e05a85;
+      --pink-2: #f08bab;
+      --line: #f6dce6;
+      --dot-palette: #e05a85, #5aa7e0, #7ac074, #e0a23e, #9a6ee0, #e07a5a, #4ab8a8, #b85ad0;
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 0 16px 24px;
+      padding: 0;
       font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
       background: linear-gradient(175deg, #fff8fb 0%, #fdeef5 55%, #fbe3ee 100%);
-      color: #5c4650;
+      color: var(--ink);
       /* 必须正好等于视口高：矮一截的话 body 背景在根部截断，
          渐变按平铺重复露出起始的近白色，页面底部会出现一条白带 */
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
-    /* 无框窗口的自绘标题栏：整条是拖动区（负 margin 撑满窗口宽度），
-       关闭按钮单独豁免 no-drag；双击拖动区走系统默认的最大化/还原 */
-    header {
+    /* 无框窗口的自绘标题栏：整条是拖动区，按钮单独豁免 no-drag */
+    .titlebar {
+      flex: none;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin: 0 -16px 4px;
       padding: 0 10px 0 16px;
-      height: 42px;
-      -webkit-app-region: drag;
+      height: 44px;
       user-select: none;
     }
-    .titlebar-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-    #close-btn {
-      -webkit-app-region: no-drag;
-      flex: none;
-      width: 30px;
-      height: 30px;
-      border: none;
-      border-radius: 9px;
-      background: transparent;
-      color: #c2788f;
-      font-size: 14px;
-      font-family: system-ui, sans-serif;
-      line-height: 1;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
+    /* 关键坑：app-region 命中按「最顶层元素自己的声明」计算，不继承——
+       只在容器声明 drag 时，被文字子元素盖住的区域仍是死区（探针实测）。
+       所以容器与非交互子元素都显式 drag，交互控件才单独 no-drag。 */
+    .titlebar,
+    .titlebar-text,
+    .titlebar h1,
+    .titlebar .header-sub {
+      -webkit-app-region: drag;
     }
-    #close-btn:hover { background: #fdeef4; color: #d96a90; }
-    #close-btn:active { background: #f9dce8; }
+    .titlebar-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
     h1 {
-      font-size: 16px;
+      font-size: 15px;
       margin: 0;
       font-weight: 700;
       letter-spacing: 0.5px;
@@ -58,22 +58,98 @@
       background-clip: text;
       color: transparent;
     }
-    .header-sub { font-size: 11px; color: #c79aa9; }
-    #stats {
-      font-size: 12px;
-      color: #b58a99;
-      margin: 0 0 14px;
-      display: flex;
-      gap: 6px;
+    .header-sub { font-size: 10.5px; color: #c79aa9; }
+    .titlebar-right { display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      -webkit-app-region: no-drag;
+      flex: none;
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
       align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 9px;
+      background: transparent;
+      color: #c2788f;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
     }
-    #stats .pill {
+    .icon-btn:hover { background: #fdeef4; color: #d96a90; }
+    .icon-btn:active { background: #f9dce8; }
+    #close-btn { font-size: 14px; font-family: system-ui, sans-serif; line-height: 1; }
+
+    /* 顶部标签导航：居中横排（参考 dsh-mneme 记忆库）。
+       关键：标题栏整条是拖动区，标签必须显式豁免 no-drag 才能接收点击——
+       否则拖动区吞掉子元素事件，整个导航看起来是「死的」。 */
+    .tabs {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 44px;
+      -webkit-app-region: no-drag;
+    }
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 15px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: #8a6b76;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab:hover { background: rgba(255, 255, 255, 0.85); color: #d96a90; }
+    .tab.active {
+      background: linear-gradient(135deg, #ec6a8e, #f7a8c0);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 3px 10px rgba(224, 90, 133, 0.28);
+    }
+    .tab .nav-icon { width: 15px; height: 15px; flex: none; }
+    .view-toggle {
+      -webkit-app-region: no-drag;
+      display: inline-flex;
       background: #fff;
-      border: 1px solid #f5d7e2;
-      border-radius: 999px;
-      padding: 2px 10px;
-      color: #d96a90;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      overflow: hidden;
     }
+    .vt-btn {
+      border: none;
+      background: transparent;
+      color: #8a6b76;
+      font-size: 11.5px;
+      font-family: inherit;
+      padding: 5px 12px;
+      cursor: pointer;
+    }
+    .vt-btn.active { background: #fdeef4; color: #d96a90; font-weight: 600; }
+
+    /* 页面骨架 */
+    .content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .page { flex: 1; min-height: 0; }
+    .page[hidden] { display: none; }
+
+    /* 可见的滚动条：默认细条在粉底上几乎不可见，用户会以为内容不能滚动。
+       外框与导航固定，滚动只发生在各内容列内部（鼠标滚轮/拖动滚动条均可）。 */
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: #f0c3d5;
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: #e8a8c2; background-clip: content-box; }
+
     h2 {
       font-size: 12px;
       font-weight: 600;
@@ -93,53 +169,173 @@
     }
     .card {
       background: #fff;
-      border: 1px solid #f6dce6;
+      border: 1px solid var(--line);
       border-radius: 14px;
       box-shadow: 0 3px 14px rgba(224, 90, 133, 0.07);
       padding: 4px 14px;
       margin-bottom: 8px;
     }
-    /* 实体时间轴 */
-    .entity-block { padding: 10px 0 6px; }
-    .entity-block + .entity-block { border-top: 1px dashed #f6dce6; }
-    .entity-name { font-size: 13px; font-weight: 700; color: #d96a90; margin-bottom: 6px; }
-    .attr-row { display: flex; gap: 10px; padding: 3px 0 3px 2px; }
-    .attr-rail {
-      flex: none;
-      width: 14px;
-      display: flex;
-      flex-direction: column;
+    .empty { justify-content: center; color: #c9a2b0; }
+
+    /* ── 记忆页：三栏 ───────────────────────── */
+    .browser { flex: 1; min-height: 0; display: flex; gap: 14px; padding: 10px 18px 16px; }
+    .col { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    .col-search { flex: none; width: 208px; overflow-y: auto; }
+    .col-filters { flex: none; width: 196px; overflow-y: auto; }
+    .col-main { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+    .col-title { font-size: 11px; color: #b58a99; letter-spacing: 1px; margin: 4px 0 8px; }
+    .search-box { position: relative; margin-bottom: 10px; }
+    .search-box svg {
+      position: absolute;
+      left: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 13px;
+      height: 13px;
+      color: #c9a2b0;
+      pointer-events: none;
+    }
+    .search-box input {
+      width: 100%;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 7px 9px 7px 28px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-box input:focus { border-color: #ec6a8e; }
+    .field-label { font-size: 10.5px; color: #c9a2b0; margin: 8px 0 4px; }
+    .col-search select {
+      width: 100%;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 8px;
+      outline: none;
+    }
+    .browse-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 11px; color: #b58a99; }
+    .browse-meta .refresh {
+      display: inline-flex;
       align-items: center;
+      gap: 4px;
+      border: none;
+      background: transparent;
+      color: #d96a90;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 7px;
     }
-    .attr-dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      margin-top: 5px;
-      flex: none;
+    .browse-meta .refresh:hover { background: #fdeef4; }
+    .browse-meta .refresh svg { width: 12px; height: 12px; }
+    .browse-meta .refresh.spin svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .chip-group { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; }
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border: none;
+      background: transparent;
+      color: #7d626c;
+      font-size: 12px;
+      font-family: inherit;
+      text-align: left;
+      padding: 6px 10px;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
     }
-    .attr-dot.current { background: linear-gradient(135deg, #ec6a8e, #f7a8c0); box-shadow: 0 0 0 3px #fce3ec; }
-    .attr-dot.past { background: #f0dbe3; box-shadow: none; }
-    .attr-rail .rail-line { flex: 1; width: 1px; background: #f6dce6; margin-top: 2px; }
-    .attr-body { flex: 1; min-width: 0; }
-    .attr-line { font-size: 12.5px; line-height: 1.55; }
-    .attr-line b { color: #c2597d; font-weight: 600; }
-    .attr-value { color: #463158; font-weight: 600; }
-    .attr-span { font-size: 11px; color: #c9a2b0; margin-left: 4px; }
-    .attr-line.past-line { color: #b49aa4; }
-    .attr-line.past-line .attr-value { color: #a58f9a; font-weight: 500; }
-    /* 最近记忆列表 */
-    #memory-list { list-style: none; margin: 0; padding: 0; }
-    #memory-list li {
+    .chip:hover { background: rgba(255, 255, 255, 0.9); }
+    .chip.active { background: #fde3ec; color: #d96a90; font-weight: 600; }
+    .chip .chip-count { margin-left: auto; font-size: 10.5px; color: #c9a2b0; }
+    .chip.active .chip-count { color: #e08aa5; }
+    .chip .chip-flame { width: 12px; height: 12px; flex: none; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+    .chip-scroll { max-height: 260px; overflow-y: auto; }
+
+    /* 时间树：年组内再套 day 子组，折叠用「头 + children 容器」结构，
+       保证年层折叠能藏住整棵子树（纯相邻兄弟选择器藏不住跨级内容）。
+       年/日表头滚动吸附：记忆多了以后滚动时始终能看到当前所处的日期。 */
+    .tree-year { font-size: 13.5px; font-weight: 700; color: #6d5560; }
+    .tree-group-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 4px 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .browser .tree-group > .tree-group-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: linear-gradient(180deg, #fdf1f6 82%, rgba(253, 241, 246, 0));
+    }
+    .browser .tree-children .tree-group > .tree-group-head {
+      top: 34px;
+      background: linear-gradient(180deg, #fbe7f0 82%, rgba(251, 231, 240, 0));
+    }
+    .tree-group-head .chev { width: 13px; height: 13px; color: #c9a2b0; transition: transform 0.15s; }
+    .tree-group-head.collapsed .chev { transform: rotate(-90deg); }
+    .tree-group-head .tree-count { margin-left: auto; font-size: 10.5px; color: #c9a2b0; }
+    .tree-group { margin-bottom: 4px; }
+    .tree-group-head.collapsed + .tree-children,
+    .tree-group-head.collapsed + .tree-entries { display: none; }
+    .tree-entries { list-style: none; margin: 0 0 4px; padding: 0 0 0 6px; }
+    .tree-children .tree-group-head .tree-year { font-size: 12px; font-weight: 600; }
+    .tree-entry {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
-      padding: 9px 2px;
+      gap: 9px;
+      padding: 5px 6px;
+      border-radius: 9px;
+      cursor: default;
     }
-    #memory-list li + li { border-top: 1px solid #fbeef3; }
-    .memory-body { flex: 1; min-width: 0; }
-    .memory-content { font-size: 12.5px; line-height: 1.6; word-break: break-word; white-space: pre-wrap; color: #5c4650; }
-    .memory-time { font-size: 10.5px; color: #c9a2b0; margin-top: 3px; }
+    .tree-entry:hover { background: rgba(255, 255, 255, 0.85); }
+    .tree-entry .dot { margin-top: 5px; }
+    .tree-time { flex: none; font-size: 11px; color: #c9a2b0; font-variant-numeric: tabular-nums; padding-top: 1px; }
+    .tree-content { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; word-break: break-word; }
+    .tree-entry.deleted .tree-content { color: #b9a4ad; text-decoration: line-through; }
+    .heat-badge {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 10px;
+      border-radius: 999px;
+      padding: 1px 7px 1px 5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .heat-badge svg { width: 10px; height: 10px; }
+    .heat-badge--hot { color: #e05a85; background: #fde3ec; }
+    .heat-badge--warm { color: #e0a23e; background: #fbf0dc; }
+    .heat-badge--cold { color: #a9b7c4; background: #eef2f6; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+    .cards-grid[hidden] { display: none; }
+    .mem-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      box-shadow: 0 3px 12px rgba(224, 90, 133, 0.07);
+      padding: 11px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .mem-card .mem-content { font-size: 12.5px; line-height: 1.6; word-break: break-word; white-space: pre-wrap; flex: 1; }
+    .mem-card .mem-foot { display: flex; align-items: center; gap: 7px; }
+    .mem-card .mem-foot .time { flex: 1; font-size: 10.5px; color: #c9a2b0; }
+    .mem-card.deleted .mem-content { color: #b9a4ad; text-decoration: line-through; }
     .forget-btn {
       flex: none;
       font-size: 11px;
@@ -150,47 +346,384 @@
       padding: 2px 10px;
       cursor: pointer;
       transition: background 0.15s;
+      font-family: inherit;
     }
     .forget-btn:hover { background: #fdeef4; }
     .forget-btn:disabled { opacity: 0.45; cursor: default; }
-    .empty { justify-content: center; color: #c9a2b0; }
-    footer { margin-top: 16px; text-align: center; font-size: 10.5px; color: #dcb6c3; }
-    /* 布局：窄视口单列堆叠；宽视口（默认窗口 720+）时间轴与最近记忆并排 */
-    .layout { display: grid; grid-template-columns: 1fr; }
-    @media (min-width: 720px) {
-      .layout {
-        grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
-        gap: 0 14px;
-        align-items: start;
-      }
+    .restore-btn {
+      flex: none;
+      font-size: 11px;
+      color: #5aa7e0;
+      background: transparent;
+      border: 1px solid #cfe3f5;
+      border-radius: 999px;
+      padding: 2px 10px;
+      cursor: pointer;
+      font-family: inherit;
     }
+    .restore-btn:hover { background: #eef5fc; }
+
+    /* 属性时间轴：记忆页底部可展开面板（不占独立标签页） */
+    /* 仅在未隐藏时套 flex 布局：ID 选择器特异性高于 .page[hidden]，
+       直接写 display:flex 会让记忆页永远关不掉（hidden 失效的坑） */
+    #page-memory:not([hidden]) { display: flex; flex-direction: column; }
+    .browser { flex: 1; min-height: 0; }
+    #claim-toggle {
+      border: none;
+      background: transparent;
+      color: #c2788f;
+      font-size: 11.5px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 7px;
+    }
+    #claim-toggle:hover { background: #fdeef4; }
+    #claim-panel { flex: none; max-height: 42%; overflow-y: auto; border-top: 1px solid var(--line); padding-top: 4px; }
+    #claim-panel[hidden] { display: none; }
+
+    /* ── 实体页样式并入记忆页时间轴面板 ─────── */
+    .page-pad { padding: 10px 18px 16px; max-width: 980px; margin: 0 auto; width: 100%; overflow-y: auto; }
+    .entity-block { padding: 10px 0 6px; }
+    .entity-block + .entity-block { border-top: 1px dashed var(--line); }
+    .entity-name { font-size: 13px; font-weight: 700; color: #d96a90; margin-bottom: 6px; display: flex; align-items: center; gap: 7px; }
+    .attr-row { display: flex; gap: 10px; padding: 3px 0 3px 2px; }
+    .attr-rail { flex: none; width: 14px; display: flex; flex-direction: column; align-items: center; }
+    .attr-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex: none; }
+    .attr-dot.current { background: linear-gradient(135deg, #ec6a8e, #f7a8c0); box-shadow: 0 0 0 3px #fce3ec; }
+    .attr-dot.past { background: #f0dbe3; box-shadow: none; }
+    .attr-rail .rail-line { flex: 1; width: 1px; background: var(--line); margin-top: 2px; }
+    .attr-body { flex: 1; min-width: 0; }
+    .attr-line { font-size: 12.5px; line-height: 1.55; }
+    .attr-line b { color: #c2597d; font-weight: 600; }
+    .attr-value { color: #463158; font-weight: 600; }
+    .attr-span { font-size: 11px; color: #c9a2b0; margin-left: 4px; }
+    .attr-line.past-line { color: #b49aa4; }
+    .attr-line.past-line .attr-value { color: #a58f9a; font-weight: 500; }
+
+    /* ── 状态页（autoDream 记忆沉淀） ───────── */
+    .page-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 4px; }
+    .page-title { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: 0.5px; color: var(--ink); }
+    .page-desc { font-size: 11.5px; color: #b58a99; margin: 3px 0 0; line-height: 1.5; }
+    .dream-btn {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      border-radius: 999px;
+      padding: 8px 20px;
+      font-size: 12.5px;
+      font-family: inherit;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #ec6a8e, #f7a8c0);
+      box-shadow: 0 3px 12px rgba(224, 90, 133, 0.3);
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .dream-btn svg { width: 14px; height: 14px; }
+    .dream-btn:hover { transform: translateY(-1px); }
+    .dream-btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+    .insights-meta { font-size: 11px; color: #b58a99; margin: 2px 0 12px; }
+    .cluster-head { display: flex; align-items: center; gap: 8px; padding: 10px 0 4px; }
+    .cluster-label { font-size: 13px; font-weight: 700; color: #d96a90; flex: 1; min-width: 0; word-break: break-all; }
+    .cluster-size { flex: none; font-size: 10.5px; color: #d96a90; background: #fdeef4; border-radius: 999px; padding: 1px 9px; }
+    .cluster-members { list-style: none; margin: 0 0 8px; padding: 0; }
+    .cluster-members li {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #6d5560;
+      padding: 5px 2px 5px 12px;
+      border-left: 2px solid #f9dce8;
+      margin: 4px 0;
+      word-break: break-word;
+    }
+    .cluster-more { font-size: 10.5px; color: #c9a2b0; padding: 0 0 6px 12px; }
+    .conflict-card { padding: 10px 4px; }
+    .conflict-card + .conflict-card { border-top: 1px dashed var(--line); }
+    .conflict-note { font-size: 12.5px; color: #a2546e; font-weight: 600; line-height: 1.5; }
+    .conflict-record {
+      font-size: 11.5px;
+      color: #6d5560;
+      background: #fdf4f7;
+      border-radius: 8px;
+      padding: 6px 10px;
+      margin-top: 6px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .conflict-tag {
+      display: inline-block;
+      font-size: 10px;
+      color: #fff;
+      background: #eba7bd;
+      border-radius: 4px;
+      padding: 0 5px;
+      margin-right: 6px;
+      vertical-align: 1px;
+    }
+    .dreaming-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ec6a8e;
+      margin-right: 5px;
+      animation: pulse 1.1s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+    /* ── 设置页 ─────────────────────────────── */
+    .settings-group { margin-bottom: 14px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 2px; }
+    .setting-row + .setting-row { border-top: 1px solid #fbeef3; }
+    .setting-label { flex: 1; min-width: 0; }
+    .setting-label strong { display: block; font-size: 12.5px; color: var(--ink); font-weight: 600; }
+    .setting-label span { display: block; font-size: 10.5px; color: #b58a99; margin-top: 2px; line-height: 1.45; }
+    .setting-input {
+      flex: none;
+      width: 170px;
+      font-family: inherit;
+      font-size: 12px;
+      color: #463158;
+      background: #fdf6f9;
+      border: 1px solid #f2d7e1;
+      border-radius: 8px;
+      padding: 6px 9px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .setting-input:focus { border-color: #ec6a8e; }
+    input[type="checkbox"].setting-check {
+      flex: none;
+      width: 34px;
+      height: 20px;
+      appearance: none;
+      background: #ecd9e0;
+      border-radius: 999px;
+      position: relative;
+      cursor: pointer;
+      outline: none;
+      transition: background 0.15s;
+    }
+    input[type="checkbox"].setting-check::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+      transition: left 0.15s;
+    }
+    input[type="checkbox"].setting-check:checked { background: linear-gradient(135deg, #ec6a8e, #f7a8c0); }
+    input[type="checkbox"].setting-check:checked::after { left: 16px; }
+    .settings-foot { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+    .save-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 22px;
+      font-size: 12.5px;
+      font-family: inherit;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #ec6a8e, #f7a8c0);
+      box-shadow: 0 3px 12px rgba(224, 90, 133, 0.3);
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .save-btn:disabled { opacity: 0.55; cursor: default; }
+    #save-status { font-size: 11.5px; color: #b58a99; }
+
+    footer { margin-top: 14px; text-align: center; font-size: 10.5px; color: #dcb6c3; }
   </style>
 </head>
 <body>
-  <header>
+  <header class="titlebar">
     <div class="titlebar-text">
       <h1>岁月涟漪</h1>
       <span class="header-sub">Ripples of Aion · 记忆图谱</span>
     </div>
-    <button id="close-btn" type="button" title="关闭">✕</button>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-page="memory" type="button">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+        记忆
+      </button>
+      <button class="tab" data-page="insights" type="button">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>
+        状态
+      </button>
+      <button class="tab" data-page="settings" type="button">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+        设置
+      </button>
+    </nav>
+    <div class="titlebar-right">
+      <div class="view-toggle" id="view-toggle">
+        <button class="vt-btn" data-view="cards" type="button">卡片</button>
+        <button class="vt-btn active" data-view="tree" type="button">时间线</button>
+      </div>
+      <button id="close-btn" class="icon-btn" type="button" title="关闭">✕</button>
+    </div>
   </header>
-  <p id="stats"><span class="pill">加载中…</span></p>
 
-  <main class="layout">
-    <section>
-      <h2>实体时间轴</h2>
-      <div id="claim-list" class="card"><div class="entity-block"><div class="attr-line empty">加载中…</div></div></div>
+  <main class="content">
+    <!-- 记忆：语义检索 | 过滤器 | 时间树/卡片 + 底部可展开的属性时间轴 -->
+    <section id="page-memory" class="page">
+      <div class="browser">
+      <aside class="col col-search">
+        <div class="col-title">语义检索</div>
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <input id="search-input" type="text" placeholder="搜索内容…" />
+        </div>
+        <div class="field-label">返回条数</div>
+        <select id="search-limit">
+          <option value="20" selected>返回 20 条</option>
+          <option value="50">返回 50 条</option>
+          <option value="100">返回 100 条</option>
+        </select>
+        <div class="field-label">时间范围</div>
+        <select id="time-range">
+          <option value="all" selected>全部时间</option>
+          <option value="today">今天</option>
+          <option value="week">本周</option>
+        </select>
+        <div class="browse-meta">
+          <span id="browse-count">共 – 条</span>
+          <button id="refresh-btn" class="refresh" type="button" title="刷新">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+            刷新
+          </button>
+        </div>
+      </aside>
+
+      <aside class="col col-filters">
+        <div class="col-title">热度</div>
+        <div class="chip-group" id="heat-filter"></div>
+        <div class="col-title">来源</div>
+        <div class="chip-group" id="source-filter"></div>
+        <div class="col-title">实体</div>
+        <div class="chip-group chip-scroll" id="entity-filter"></div>
+      </aside>
+
+      <section class="col col-main">
+        <div id="memory-tree"></div>
+        <div id="memory-cards" class="cards-grid" hidden></div>
+      </section>
+      </div>
+
+      <!-- 属性时间轴：记忆页底部可展开（默认收起，计数在切换按钮上） -->
+      <div id="claim-bar">
+        <button id="claim-toggle" type="button">实体属性时间轴 ▾</button>
+      </div>
+      <section id="claim-panel" hidden>
+        <div id="claim-list" class="card"><div class="entity-block"><div class="attr-line empty">加载中…</div></div></div>
+      </section>
     </section>
 
-    <section>
-      <h2>最近记忆</h2>
-      <ul id="memory-list" class="card">
-        <li class="empty">加载中…</li>
-      </ul>
+    <!-- 状态：autoDream 记忆沉淀 -->
+    <section id="page-insights" class="page page-pad" hidden>
+      <div class="page-head">
+        <div>
+          <div class="page-title">记忆沉淀</div>
+          <p class="page-desc">autoDream 会在对话静默后把散落的记忆聚成主题、挑出矛盾；<br/>也可以现在就让它做一场梦。</p>
+        </div>
+        <button id="dream-btn" class="dream-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+          立即做梦
+        </button>
+      </div>
+      <p id="insights-meta" class="insights-meta">加载中…</p>
+
+      <h2>主题簇</h2>
+      <div id="cluster-list" class="card"><div class="entity-block"><div class="attr-line empty">加载中…</div></div></div>
+
+      <h2>矛盾标注</h2>
+      <div id="conflict-list" class="card"><div class="entity-block"><div class="attr-line empty">加载中…</div></div></div>
+    </section>
+
+    <!-- 设置：插件配置（白名单键，经 save-config 收口） -->
+    <section id="page-settings" class="page page-pad" hidden>
+      <div class="page-head">
+        <div>
+          <div class="page-title">设置</div>
+          <p class="page-desc">改动保存后即刻生效；配置存放在插件私有存储。</p>
+        </div>
+      </div>
+
+      <div class="settings-group card">
+        <h2 style="margin-top:10px;">autoDream 整合</h2>
+        <label class="setting-row">
+          <span class="setting-label"><strong>启用空闲整合</strong><span>对话静默后自动聚类主题并标注矛盾</span></span>
+          <input id="cfg-consolidationEnabled" class="setting-check" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>静默触发分钟</strong><span>最后一轮对话后静默多少分钟才做梦</span></span>
+          <input id="cfg-consolidationIdleMinutes" class="setting-input" type="number" min="1" step="1" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>单次整合上限</strong><span>每次参与整合的最大记忆条数（LLM 成本护栏）</span></span>
+          <input id="cfg-consolidationMaxRecords" class="setting-input" type="number" min="10" step="5" />
+        </label>
+      </div>
+
+      <div class="settings-group card">
+        <h2 style="margin-top:10px;">记忆热度</h2>
+        <label class="setting-row">
+          <span class="setting-label"><strong>每日衰减率</strong><span>越高忘得越快；0.05 约两周衰半</span></span>
+          <input id="cfg-heatDecayPerDay" class="setting-input" type="number" min="0" max="1" step="0.01" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>热度排序权重</strong><span>检索得分里热度的话语权</span></span>
+          <input id="cfg-heatWeight" class="setting-input" type="number" min="0" step="0.1" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>命中加热度</strong><span>记忆被想起时向 1 靠拢的幅度</span></span>
+          <input id="cfg-heatBump" class="setting-input" type="number" min="0" max="1" step="0.05" />
+        </label>
+      </div>
+
+      <div class="settings-group card">
+        <h2 style="margin-top:10px;">注入与检索</h2>
+        <label class="setting-row">
+          <span class="setting-label"><strong>注入预算（字符）</strong><span>每轮热上下文注入的字符上限</span></span>
+          <input id="cfg-hotContextBudgetChars" class="setting-input" type="number" min="100" step="50" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>每轮注入条数</strong><span>热上下文最多带多少条记忆</span></span>
+          <input id="cfg-maxMemoriesPerTurn" class="setting-input" type="number" min="1" step="1" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>向量检索</strong><span>开启后搜索工具可用向量重排（需要模型服务）</span></span>
+          <select id="cfg-embeddingProvider" class="setting-input">
+            <option value="none">关闭</option>
+            <option value="openai-compatible">OpenAI 兼容</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>向量服务地址</strong><span>OpenAI 兼容接口的 Base URL</span></span>
+          <input id="cfg-embeddingBaseUrl" class="setting-input" type="text" placeholder="https://api.openai.com/v1" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>向量模型</strong><span>如 text-embedding-3-small</span></span>
+          <input id="cfg-embeddingModel" class="setting-input" type="text" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label"><strong>密钥名称</strong><span>在宿主密钥管理里的名字（密钥本体不入配置）</span></span>
+          <input id="cfg-embeddingApiKeyName" class="setting-input" type="text" />
+        </label>
+      </div>
+
+      <div class="settings-foot">
+        <button id="save-btn" class="save-btn" type="button">保存设置</button>
+        <span id="save-status"></span>
+      </div>
     </section>
   </main>
-
-  <footer>岁月无声，涟漪有痕</footer>
   <script src="./panel.js"></script>
 </body>
 </html>

@@ -35,7 +35,7 @@ describe("插件契约（构建产物）", () => {
     plugin = loadPlugin();
   });
 
-  it("register 注册 4 个工具 + 1 个 provider + 2 个 IPC + 轮次订阅", async () => {
+  it("register 注册 4 个工具 + 1 个 provider + 6 个 IPC + 轮次订阅", async () => {
     const ctx = createMockContext({ pluginId: PLUGIN_ID, deps: makeDeps() });
     await plugin.register(ctx);
 
@@ -54,6 +54,10 @@ describe("插件契约（构建产物）", () => {
     expect(ctx.promptProviders.map((p) => (p as { id: string }).id)).toContain("hot-context");
     expect(ctx.ipcChannels.has("get-state")).toBe(true);
     expect(ctx.ipcChannels.has("forget")).toBe(true);
+    expect(ctx.ipcChannels.has("dream-now")).toBe(true);
+    expect(ctx.ipcChannels.has("get-config")).toBe(true);
+    expect(ctx.ipcChannels.has("save-config")).toBe(true);
+    expect(ctx.ipcChannels.has("browse-memories")).toBe(true);
     expect(ctx.subscriptions.some((s) => s.event === "host:turn:finished")).toBe(true);
 
     // 模拟宿主停止：清理回调按序执行，不抛异常
@@ -81,11 +85,42 @@ describe("插件契约（构建产物）", () => {
 
     // mock storage 没有 insights key：按「从未整合」返回空形态
     const state = (await getState!()) as {
-      insights: { lastRunAt: number; clusters: unknown[]; conflicts: unknown[] };
+      insights: { lastRunAt: number; dreaming: boolean; clusters: unknown[]; conflicts: unknown[] };
     };
     expect(state.insights.lastRunAt).toBe(0);
+    expect(state.insights.dreaming).toBe(false);
     expect(state.insights.clusters).toEqual([]);
     expect(state.insights.conflicts).toEqual([]);
+    await ctx.dispose();
+  });
+
+  it("dream-now 经 single-flight 入队返回 ok，配置读写走白名单合并", async () => {
+    const ctx = createMockContext({ pluginId: PLUGIN_ID, deps: makeDeps() });
+    await plugin.register(ctx);
+
+    // dream-now：触发器存在（conversations/llm 齐备）→ 入队成功；空库整合静默结束
+    const dreamNow = ctx.ipcChannels.get("dream-now")!;
+    expect(dreamNow()).toMatchObject({ ok: true });
+    // 等队列任务跑完再 dispose，避免异步任务跨 dispose 产生竞态
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // save-config：白名单外的键被丢弃、类型不符的键被跳过、合法键合并生效
+    const saveConfig = ctx.ipcChannels.get("save-config")!;
+    const saved = saveConfig({
+      hotContextBudgetChars: 1234,
+      heatWeight: "不是数字",
+      bogusKey: "越界",
+    }) as { ok: boolean; config?: Record<string, unknown> };
+    expect(saved.ok).toBe(true);
+    expect(saved.config!.hotContextBudgetChars).toBe(1234);
+    // heatWeight 类型不符跳过，保持默认值
+    expect(saved.config!.heatWeight).toBe(0.5);
+    expect(saved.config).not.toHaveProperty("bogusKey");
+
+    // get-config 读回持久化的新值（save 后再 get 走同一 storage）
+    const getConfig = ctx.ipcChannels.get("get-config")!;
+    const config = getConfig() as Record<string, unknown>;
+    expect(config.hotContextBudgetChars).toBe(1234);
     await ctx.dispose();
   });
 

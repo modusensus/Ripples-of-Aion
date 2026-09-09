@@ -47,6 +47,11 @@ const plugin: CyrenePlugin = {
     // embedding 工厂：未配置时返回恒 null 的降级 embedder（纯关键词检索）
     const embedder = createEmbedderByProvider(config, { secrets: ctx.deps.secrets, log });
 
+    // 面板「立即做梦」的入口：整合链路缺失（宿主服务异常）时保持 undefined，
+    // dream-now IPC 会得到 unavailable 降级而不是报错弹窗。
+    let triggerDream: (() => boolean) | undefined;
+    let isDreaming: (() => boolean) | undefined;
+
     // 四个 AI 工具
     ctx.registerTool(createRecallTool({ store, log }));
     ctx.registerTool(createSearchTool({ store, config, embedder, log }));
@@ -96,9 +101,9 @@ const plugin: CyrenePlugin = {
       let consolidationInFlight = false;
 
       // 空闲触发的唯一入队口：总开关 + 无在途 + 未中止三重守卫；
-      // 摄入完成防抖与启动补跑都走这里，保证 single-flight 语义完全一致。
-      const runConsolidation = (): void => {
-        if (!consolidationEnabled || consolidationInFlight || ctx.signal.aborted) return;
+      // 摄入完成防抖、启动补跑与面板 dream-now 都走这里，single-flight 语义完全一致。
+      const runConsolidation = (): boolean => {
+        if (!consolidationEnabled || consolidationInFlight || ctx.signal.aborted) return false;
         consolidationInFlight = true;
         void queue.enqueue("autoDream", async (_task, signal) => {
           try {
@@ -107,7 +112,10 @@ const plugin: CyrenePlugin = {
             consolidationInFlight = false;
           }
         });
+        return true;
       };
+      triggerDream = runConsolidation;
+      isDreaming = () => consolidationInFlight;
 
       const scheduleConsolidation = (): void => {
         if (consolidationTimer !== null) clearTimeout(consolidationTimer);
@@ -174,7 +182,7 @@ const plugin: CyrenePlugin = {
     }
 
     // 图谱窗口 IPC + 窗口管理器；open 由宿主插件卡片的「打开」按钮触发
-    registerUiIpc(ctx, { store, storage: ctx.storage, log });
+    registerUiIpc(ctx, { store, storage: ctx.storage, log, triggerDream, isDreaming });
     winManager = createWindowManager({ log });
     ctx.onDispose(() => {
       winManager?.close();

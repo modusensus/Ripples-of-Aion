@@ -17,12 +17,12 @@ export interface WindowManager {
   close(): void;
 }
 
-/** 面板窗口标题与默认尺寸（承接更多后端能力的展示位，v0.3.1 起）。 */
+/** 面板窗口标题与默认尺寸（v0.5.0 交互式三栏版：对齐 dsh-mneme 记忆库画框）。 */
 const WINDOW_TITLE = "岁月涟漪 · 记忆图谱";
-const WINDOW_WIDTH = 720;
-const WINDOW_HEIGHT = 900;
-const WINDOW_MIN_WIDTH = 560;
-const WINDOW_MIN_HEIGHT = 620;
+const WINDOW_WIDTH = 1560;
+const WINDOW_HEIGHT = 1000;
+const WINDOW_MIN_WIDTH = 1000;
+const WINDOW_MIN_HEIGHT = 660;
 
 /** 窗口边界在插件存储里的键。 */
 const BOUNDS_KEY = "panel-bounds";
