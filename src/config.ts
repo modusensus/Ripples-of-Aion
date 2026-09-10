@@ -14,6 +14,12 @@ export const DEFAULT_CONSOLIDATION_IDLE_MINUTES = 30;
 /** 单次整合最多送 80 条记录。 */
 export const DEFAULT_CONSOLIDATION_MAX_RECORDS = 80;
 
+/**
+ * search 工具的 LLM 精排默认开：精排要花一次小型 LLM 调用，失败自动
+ * 降级为原序；给成本敏感用户一键关掉的逃生门。
+ */
+export const DEFAULT_RERANK_ENABLED = true;
+
 export interface PluginConfig {
   embeddingProvider: "openai-compatible" | "none";
   embeddingBaseUrl: string;
@@ -43,6 +49,11 @@ export interface PluginConfig {
    * 超出按有效热度降序截断（最重要的记忆优先参与整合）。
    */
   consolidationMaxRecords?: number;
+  /**
+   * search 工具的 LLM 精排开关：精排要花一次小型 LLM 调用，失败自动降级
+   * 原序；给成本敏感用户一键关掉的逃生门。
+   */
+  rerankEnabled?: boolean;
 }
 
 export const DEFAULT_CONFIG: PluginConfig = {
@@ -58,6 +69,7 @@ export const DEFAULT_CONFIG: PluginConfig = {
   consolidationEnabled: DEFAULT_CONSOLIDATION_ENABLED,
   consolidationIdleMinutes: DEFAULT_CONSOLIDATION_IDLE_MINUTES,
   consolidationMaxRecords: DEFAULT_CONSOLIDATION_MAX_RECORDS,
+  rerankEnabled: DEFAULT_RERANK_ENABLED,
 };
 
 export function loadConfig(storage: PluginStorage): PluginConfig {

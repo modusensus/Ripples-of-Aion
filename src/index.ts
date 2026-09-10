@@ -13,6 +13,7 @@ import { createTurnIngestor } from "./pipeline/ingest";
 import { createEmbedderByProvider } from "./pipeline/embedder";
 import { createConsolidator } from "./pipeline/consolidate";
 import { createHotContextProvider } from "./provider/hot-context";
+import { createLlmReranker } from "./retrieval/rerank";
 import { createRecallTool } from "./tools/recall";
 import { createSearchTool } from "./tools/search";
 import { createTimelineTool } from "./tools/timeline";
@@ -52,9 +53,15 @@ const plugin: CyrenePlugin = {
     let triggerDream: (() => boolean) | undefined;
     let isDreaming: (() => boolean) | undefined;
 
+    // 宿主服务提前解构：LLM 精排与摄入管线共用。缺失时各自降级——
+    // search 工具不接精排（初排原序），摄入与整合整条停用。
+    const { conversations, llm } = ctx.deps;
+    // 精排只接 search 工具的检索出口；hot-context 注入保持纯关键词（2 秒红线）。
+    const reranker = llm ? createLlmReranker(llm, { log }) : undefined;
+
     // 四个 AI 工具
     ctx.registerTool(createRecallTool({ store, log }));
-    ctx.registerTool(createSearchTool({ store, config, embedder, log }));
+    ctx.registerTool(createSearchTool({ store, config, embedder, reranker, log }));
     ctx.registerTool(createTimelineTool({ store, log }));
     ctx.registerTool(createForgetTool({ store, log }));
 
@@ -65,7 +72,6 @@ const plugin: CyrenePlugin = {
 
     // 轮次摄入管线 + autoDream 空闲整合：turn:finished 是旁路通知（宿主不等），
     // 必须自己排队异步做；整合与摄入复用同一条串行队列，天然互斥不抢并发。
-    const { conversations, llm } = ctx.deps;
     if (!conversations || !llm) {
       // manifest 已声明依赖，正常不会走到这里；防御宿主异常注入。
       // 摄入与整合都依赖 llm，缺失时两者一起停用。
@@ -181,8 +187,18 @@ const plugin: CyrenePlugin = {
       );
     }
 
-    // 图谱窗口 IPC + 窗口管理器；open 由宿主插件卡片的「打开」按钮触发
-    registerUiIpc(ctx, { store, storage: ctx.storage, log, triggerDream, isDreaming });
+    // 图谱窗口 IPC + 窗口管理器；open 由宿主插件卡片的「打开」按钮触发。
+    // config/embedder/reranker 供检索台走真·混合检索 + 可选精排（均可选，缺席自动降级）。
+    registerUiIpc(ctx, {
+      store,
+      storage: ctx.storage,
+      config,
+      embedder,
+      reranker,
+      log,
+      triggerDream,
+      isDreaming,
+    });
     winManager = createWindowManager({ log });
     ctx.onDispose(() => {
       winManager?.close();

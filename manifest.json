@@ -2,7 +2,7 @@
   "apiVersion": 1,
   "id": "ripples-of-aion",
   "name": "岁月涟漪",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "结构化记忆层：自动沉淀对话事实，支持混合检索、实体时间轴与记忆图谱窗口。",
   "author": "modusensus",
   "entry": "index.cjs",

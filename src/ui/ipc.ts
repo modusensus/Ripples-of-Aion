@@ -1,8 +1,12 @@
 import type { PluginContext, PluginStorage } from "@playa0v0/cyrene-plugin-sdk";
 import { loadInsights } from "../core/insights";
+import { buildEntityGraph, type EntityGraph } from "../core/graph";
 import { effectiveHeatOf, HEAT_DECAY_PER_DAY, type MemoryStore } from "../core/store";
+import type { Embedder, MemoryRecord, SearchHit } from "../core/types";
 import { loadConfig, saveConfig, type PluginConfig } from "../config";
 import type { Logger } from "../logger";
+import { createHybridSearcher, type HybridSearcher } from "../retrieval/hybrid";
+import type { Reranker } from "../retrieval/rerank";
 
 /**
  * 面板私有 IPC：通过 ctx.registerIpc 注册，channel 只用短名，
@@ -14,6 +18,8 @@ const DREAM_NOW_CHANNEL = "dream-now";
 const GET_CONFIG_CHANNEL = "get-config";
 const SAVE_CONFIG_CHANNEL = "save-config";
 const BROWSE_CHANNEL = "browse-memories";
+const GET_GRAPH_CHANNEL = "get-graph";
+const SEARCH_MEMORIES_CHANNEL = "search-memories";
 
 /** get-state 最多返回多少条最近记忆。 */
 const RECENT_LIMIT = 20;
@@ -39,6 +45,8 @@ const EDITABLE_CONFIG_KEYS: ReadonlyArray<keyof PluginConfig> = [
   "consolidationEnabled",
   "consolidationIdleMinutes",
   "consolidationMaxRecords",
+  // 面板检索台的精排开关；布尔键走「按现值类型校验」，类型不符自动丢弃
+  "rerankEnabled",
 ];
 
 /** get-state 返回的单条记忆：只挑面板需要的字段，避免把 embedding 等大对象送进 IPC。 */
@@ -110,6 +118,25 @@ interface BrowseRecord {
   deleted: boolean;
 }
 
+/** 检索台单条命中：与 BrowseRecord 同风格，额外带相关度分数与检索来源。 */
+interface PanelSearchHit {
+  id: string;
+  content: string;
+  createdAt: number;
+  /** 有效热度 0..1（预计算，面板直接渲染徽章）。 */
+  heat: number;
+  entities: string[];
+  score: number;
+  source: SearchHit["source"];
+}
+
+/** search-memories 的返回结构；失败/空查询也是同一形态（hits 为空）。 */
+interface PanelSearchResult {
+  hits: PanelSearchHit[];
+  /** 结果是否经过精排器重排（reranker 缺席或失败时为 false）。 */
+  reranked: boolean;
+}
+
 export interface UiIpcDeps {
   store: MemoryStore;
   /** 洞察读取：autoDream 产物独立于记忆本体，走插件 KV。 */
@@ -119,18 +146,42 @@ export interface UiIpcDeps {
   triggerDream?: () => boolean;
   /** 整合是否在途（用于「做梦中」展示与轮询终止判定）。 */
   isDreaming?: () => boolean;
+  /**
+   * v0.6.0 检索台装配项，全部可选：config+embedder 齐备时启用混合检索，
+   * reranker 提供精排能力；缺席时 search-memories 降级纯关键词路径。
+   * 可选是为了并行期旧调用点可编译，index.ts 装配后注入。
+   */
+  config?: PluginConfig;
+  embedder?: Embedder;
+  reranker?: Reranker;
 }
 
 /**
- * 注册记忆图谱面板的五个 IPC channel：
+ * 注册记忆图谱面板的八个 IPC channel：
  * - get-state：统计 + 最近 20 条活跃记忆 + 实体时间轴 + autoDream 洞察摘要；
  * - forget：按 id 软删一条记忆；
  * - dream-now：手动触发一次整合（守卫与串行队列都在 index.ts 侧）；
- * - get-config / save-config：读取与白名单合并保存插件配置。
- * 整体 fail-safe：读失败返回空状态、写失败返回 { ok: false }，只 warn 不抛。
+ * - get-config / save-config：读取与白名单合并保存插件配置；
+ * - browse-memories：三栏浏览器的数据源（关键词命中或全量）；
+ * - get-graph：实体共现图谱（节点/边），面板力导向布局的数据源；
+ * - search-memories：检索台的混合检索入口（可选精排，不 bump 热度）。
+ * 整体 fail-safe：读失败返回空状态/空结构、写失败返回 { ok: false }，只 warn 不抛。
  */
 export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
   const { store, storage, log } = deps;
+
+  // 混合检索器只建一次；config 缺席（旧调用点/部分测试）时为 null，
+  // search-memories 走 store.searchKeyword 降级路径。
+  const hybridSearch: HybridSearcher | null = deps.config
+    ? createHybridSearcher(store, deps.config, { embedder: deps.embedder, log })
+    : null;
+
+  /** 实体并集口径：顶层 entities 与 entityClaims 的实体名（去重、剔非字符串）。 */
+  const unionEntities = (record: MemoryRecord): string[] =>
+    [
+      ...(record.entities ?? []),
+      ...(record.entityClaims ?? []).map((claim) => claim.entity),
+    ].filter((entity, index, all) => typeof entity === "string" && entity !== "" && all.indexOf(entity) === index);
 
   const getState = async (): Promise<PanelState> => {
     try {
@@ -237,16 +288,97 @@ export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
           content: record.content,
           createdAt: record.createdAt,
           heat: effectiveHeatOf(record, HEAT_DECAY_PER_DAY, Date.now()),
-          entities: [
-            ...(record.entities ?? []),
-            ...(record.entityClaims ?? []).map((claim) => claim.entity),
-          ].filter((entity, index, all) => typeof entity === "string" && entity !== "" && all.indexOf(entity) === index),
+          entities: unionEntities(record),
           deleted: record.deleted === true,
         }));
       return { records, total: base.length };
     } catch (err) {
       log.warn("browse-memories 失败，返回空列表：", err);
       return { records: [], total: 0 };
+    }
+  };
+
+  /** 记忆图谱数据源：活跃记录的实体共现图；heat 注入有效热度（含配置的衰减率）。 */
+  const getGraph = async (): Promise<EntityGraph> => {
+    try {
+      await store.load();
+      const decayPerDay = deps.config?.heatDecayPerDay ?? HEAT_DECAY_PER_DAY;
+      return buildEntityGraph(store.all(), {
+        heatOf: (record) => effectiveHeatOf(record, decayPerDay, Date.now()),
+      });
+    } catch (err) {
+      log.warn("get-graph 失败，返回空图谱：", err);
+      return { nodes: [], edges: [] };
+    }
+  };
+
+  /**
+   * 检索台数据源：混合检索（config+embedder 装配后）或关键词降级，可选精排。
+   * 刻意不 bumpHeat——面板检索是调试行为，不能像 Agent 真实检索那样污染热度。
+   */
+  const searchMemories = async (payload: unknown): Promise<PanelSearchResult> => {
+    try {
+      await store.load();
+      const options = (typeof payload === "object" && payload !== null ? payload : {}) as {
+        text?: unknown;
+        limit?: unknown;
+        rerank?: unknown;
+      };
+      const text = typeof options.text === "string" ? options.text.trim() : "";
+      if (text === "") return { hits: [], reranked: false };
+      const limit = Math.min(Math.max(Math.floor(Number(options.limit) || 10), 1), 50);
+      // 精排开关：显式参数优先，否则跟随配置（缺省开）；reranker 缺席时自然跳过
+      const wantRerank =
+        typeof options.rerank === "boolean"
+          ? options.rerank
+          : (deps.config?.rerankEnabled ?? true);
+
+      let hits: SearchHit[];
+      if (hybridSearch) {
+        hits = await hybridSearch({ text, limit });
+      } else {
+        // 降级路径：纯关键词召回，score 用排位衰减分即可（装配后不会走到）
+        hits = store
+          .searchKeyword(text)
+          .slice(0, limit)
+          .map((record, index) => ({
+            record,
+            score: 1 / (index + 1),
+            source: "keyword" as const,
+          }));
+      }
+
+      // 精排：reranker 内部已 fail-safe，这里再兜一层保证绝不抛
+      let reranked = false;
+      if (deps.reranker && wantRerank && hits.length > 0) {
+        try {
+          const rerankedHits = await deps.reranker.rerank(hits, { query: text });
+          if (Array.isArray(rerankedHits)) {
+            hits = rerankedHits;
+            reranked = true;
+          }
+        } catch (err) {
+          log.warn("面板检索精排失败，使用初排结果：", err);
+        }
+      }
+
+      const decayPerDay = deps.config?.heatDecayPerDay ?? HEAT_DECAY_PER_DAY;
+      const now = Date.now();
+      return {
+        hits: hits.map((hit) => ({
+          id: hit.record.id,
+          content: hit.record.content,
+          createdAt: hit.record.createdAt,
+          heat: effectiveHeatOf(hit.record, decayPerDay, now),
+          entities: unionEntities(hit.record),
+          score: hit.score,
+          source: hit.source,
+        })),
+        reranked,
+      };
+    } catch (err) {
+      log.warn("search-memories 失败，返回空结果：", err);
+      return { hits: [], reranked: false };
     }
   };
 
@@ -284,7 +416,7 @@ export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
   // 重复注册幂等：先移除旧处理器。首次注册时通道不存在，宿主会抛
   // 「不能注销不属于当前插件的 IPC channel」——这里只吞掉 unregister 的失败，
   // 绝不能让 catch 波及下面的 register。
-  for (const channel of [GET_STATE_CHANNEL, FORGET_CHANNEL, DREAM_NOW_CHANNEL, GET_CONFIG_CHANNEL, SAVE_CONFIG_CHANNEL, BROWSE_CHANNEL]) {
+  for (const channel of [GET_STATE_CHANNEL, FORGET_CHANNEL, DREAM_NOW_CHANNEL, GET_CONFIG_CHANNEL, SAVE_CONFIG_CHANNEL, BROWSE_CHANNEL, GET_GRAPH_CHANNEL, SEARCH_MEMORIES_CHANNEL]) {
     try {
       ctx.unregisterIpc(channel);
     } catch {
@@ -298,6 +430,8 @@ export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
     ctx.registerIpc(GET_CONFIG_CHANNEL, () => getConfig());
     ctx.registerIpc(SAVE_CONFIG_CHANNEL, (patch) => saveConfigPatch(patch));
     ctx.registerIpc(BROWSE_CHANNEL, (query) => browseMemories(query));
+    ctx.registerIpc(GET_GRAPH_CHANNEL, () => getGraph());
+    ctx.registerIpc(SEARCH_MEMORIES_CHANNEL, (payload) => searchMemories(payload));
   } catch (err) {
     log.warn("注册图谱 IPC 失败：", err);
   }
@@ -305,7 +439,7 @@ export function registerUiIpc(ctx: PluginContext, deps: UiIpcDeps): void {
   // 插件注销时收口：移除面板 IPC 处理器。
   ctx.onDispose(() => {
     try {
-      for (const channel of [GET_STATE_CHANNEL, FORGET_CHANNEL, DREAM_NOW_CHANNEL, GET_CONFIG_CHANNEL, SAVE_CONFIG_CHANNEL, BROWSE_CHANNEL]) {
+      for (const channel of [GET_STATE_CHANNEL, FORGET_CHANNEL, DREAM_NOW_CHANNEL, GET_CONFIG_CHANNEL, SAVE_CONFIG_CHANNEL, BROWSE_CHANNEL, GET_GRAPH_CHANNEL, SEARCH_MEMORIES_CHANNEL]) {
         ctx.unregisterIpc(channel);
       }
     } catch (err) {

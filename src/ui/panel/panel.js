@@ -10,6 +10,8 @@ const DREAM_NOW_CHANNEL = "plugin:ripples-of-aion:dream-now";
 const GET_CONFIG_CHANNEL = "plugin:ripples-of-aion:get-config";
 const SAVE_CONFIG_CHANNEL = "plugin:ripples-of-aion:save-config";
 const BROWSE_CHANNEL = "plugin:ripples-of-aion:browse-memories";
+const GET_GRAPH_CHANNEL = "plugin:ripples-of-aion:get-graph";
+const SEARCH_MEMORIES_CHANNEL = "plugin:ripples-of-aion:search-memories";
 
 // ── 图标：Lucide v1.42 路径数据（ISC license），沿用 dsh-mneme 的内联惯例——
 // 插件运行时不能 require 第三方库，morphicons/lucide 素材以静态元组随包分发，
@@ -20,6 +22,9 @@ const ICON_PATHS = {
   chevronDown: [["path", { d: "m6 9 6 6 6-6" }]],
   flame: [["path", { d: "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" }]],
   inbox: [["polyline", { points: "22 12 16 12 14 15 10 15 8 12 2 12" }], ["path", { d: "M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" }]],
+  // share2 = 图谱页标签图标，slidersHorizontal = 检索台页标签图标（与 index.html 内联 svg 同源）
+  share2: [["circle", { cx: "18", cy: "5", r: "3" }], ["circle", { cx: "6", cy: "12", r: "3" }], ["circle", { cx: "18", cy: "19", r: "3" }], ["line", { x1: "8.59", x2: "15.42", y1: "13.51", y2: "17.49" }], ["line", { x1: "15.41", x2: "8.59", y1: "6.51", y2: "10.49" }]],
+  slidersHorizontal: [["line", { x1: "21", x2: "14", y1: "4", y2: "4" }], ["line", { x1: "10", x2: "3", y1: "4", y2: "4" }], ["line", { x1: "21", x2: "12", y1: "12", y2: "12" }], ["line", { x1: "8", x2: "3", y1: "12", y2: "12" }], ["line", { x1: "21", x2: "16", y1: "20", y2: "20" }], ["line", { x1: "12", x2: "3", y1: "20", y2: "20" }], ["line", { x1: "14", x2: "14", y1: "2", y2: "6" }], ["line", { x1: "8", x2: "8", y1: "10", y2: "14" }], ["line", { x1: "16", x2: "16", y1: "18", y2: "22" }]],
 };
 
 function icon(name, className) {
@@ -141,6 +146,10 @@ function switchPage(name) {
   // 视图切换（卡片/时间线）只对记忆页有意义
   viewToggle.style.visibility = name === "memory" ? "visible" : "hidden";
   if (name === "memory") browse();
+  // 图谱页每次切入都重新拉数据渲染（实体共现会随记忆变化）
+  if (name === "graph") renderGraph();
+  // 检索台切进去就聚焦输入框，查询由用户显式触发（空查询只给提示不发请求）
+  if (name === "search-console") consoleQueryEl.focus();
   // 时间轴面板与洞察都要 get-state 数据，切换时顺带刷新
   if (name !== "settings") refresh();
   if (name === "settings" && !pageLoaded.settings) loadSettings();
@@ -648,6 +657,337 @@ async function pollDreamDone() {
     }
   }
 }
+
+// ── 图谱页（实体共现力导向图，零依赖手搓布局） ──
+
+const graphSummaryEl = document.getElementById("graph-summary");
+const graphCanvasEl = document.getElementById("graph-canvas");
+
+/** 画布逻辑坐标系：svg viewBox 固定，实际显示尺寸由 CSS 拉伸自适应。 */
+const GRAPH_VIEW_W = 1000;
+const GRAPH_VIEW_H = 640;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function svgEl(tag, attrs) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, value);
+  return node;
+}
+
+/** 节点半径 ∝ sqrt(degree)：平方根把度数差压平，枢纽不会大到遮住别人。 */
+function graphNodeRadius(degree) {
+  const d = Number.isFinite(degree) ? Math.max(0, degree) : 0;
+  return 6 + Math.sqrt(d) * 3.4;
+}
+
+/** 确定性抖动：同一份数据每次打开布局一致（Math.random 会让图的形态每次都变）。 */
+function graphJitter(i, salt) {
+  const h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
+  return (h % 2000) / 2000 - 0.5;
+}
+
+/**
+ * 手写力导向布局（Fruchterman-Reingold 简化版）：
+ * 初始按圆环布点 → 迭代 300 次（O(n²) 斥力 + 边弹簧 + 向心力，步长逐轮冷却）
+ * → 收尾把包围盒缩放平移到 viewBox 居中。n ≤ 40，同步一次算完，无动画循环。
+ * 理想边长按两端节点半径和自适应，大节点离邻居远一点，避免圆面互相压住。
+ */
+function layoutGraph(nodes, edges) {
+  const n = nodes.length;
+  const cx = GRAPH_VIEW_W / 2;
+  const cy = GRAPH_VIEW_H / 2;
+  const radii = nodes.map((node) => graphNodeRadius(node.degree));
+
+  const px = new Array(n);
+  const py = new Array(n);
+  const ringR = Math.min(GRAPH_VIEW_W, GRAPH_VIEW_H) * 0.34;
+  for (let i = 0; i < n; i += 1) {
+    const angle = (2 * Math.PI * i) / n;
+    px[i] = cx + Math.cos(angle) * ringR + graphJitter(i, 7) * 40;
+    py[i] = cy + Math.sin(angle) * ringR + graphJitter(i, 13) * 40;
+  }
+
+  // 边 → 端点下标；端点缺失直接丢弃（服务端保证过，渲染端再防御一次）
+  const indexBy = new Map(nodes.map((node, i) => [node.name, i]));
+  const springs = [];
+  for (const edge of edges) {
+    const i = indexBy.get(edge.a);
+    const j = indexBy.get(edge.b);
+    if (i === undefined || j === undefined || i === j) continue;
+    const weight = Number(edge.weight);
+    springs.push({ i, j, weight: Number.isFinite(weight) ? Math.max(1, weight) : 1 });
+  }
+
+  const idealLength = (i, j) => (radii[i] + radii[j]) * 2.1 + 46;
+  const REPULSION = 260000;
+  const GRAVITY = 0.012;
+  const SPRING = 0.012;
+  let temp = Math.min(GRAPH_VIEW_W, GRAPH_VIEW_H) * 0.12;
+
+  for (let iter = 0; iter < 300; iter += 1) {
+    const fx = new Array(n).fill(0);
+    const fy = new Array(n).fill(0);
+    // 斥力：所有节点两两相斥，力 ∝ 1/d²
+    for (let i = 0; i < n; i += 1) {
+      for (let j = i + 1; j < n; j += 1) {
+        let dx = px[i] - px[j];
+        let dy = py[i] - py[j];
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 0.01) {
+          // 完全重合时给一个确定性的 breakup 方向，避免除零 NaN
+          dx = graphJitter(i + j, 3) + 0.6;
+          dy = graphJitter(j + i, 11) + 0.6;
+          d2 = dx * dx + dy * dy;
+        }
+        const d = Math.sqrt(d2);
+        const f = REPULSION / d2;
+        const ux = dx / d;
+        const uy = dy / d;
+        fx[i] += ux * f; fy[i] += uy * f;
+        fx[j] -= ux * f; fy[j] -= uy * f;
+      }
+    }
+    // 弹簧：沿边把两端拉向理想长度；权重越高绑得越紧（封顶防枢纽边独大）
+    for (const spring of springs) {
+      const dx = px[spring.j] - px[spring.i];
+      const dy = py[spring.j] - py[spring.i];
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+      const f = (d - idealLength(spring.i, spring.j)) * SPRING * Math.min(spring.weight, 3);
+      const ux = dx / d;
+      const uy = dy / d;
+      fx[spring.i] += ux * f; fy[spring.i] += uy * f;
+      fx[spring.j] -= ux * f; fy[spring.j] -= uy * f;
+    }
+    // 向心力 + 限步长积分（冷却温度收敛）
+    for (let i = 0; i < n; i += 1) {
+      fx[i] += (cx - px[i]) * GRAVITY;
+      fy[i] += (cy - py[i]) * GRAVITY;
+      const disp = Math.hypot(fx[i], fy[i]);
+      if (disp > 1e-6) {
+        const step = Math.min(disp, temp);
+        px[i] += (fx[i] / disp) * step;
+        py[i] += (fy[i] / disp) * step;
+      }
+    }
+    temp *= 0.985;
+  }
+
+  // 收尾：全节点（含半径）包围盒 → 等比缩放平移到 viewBox 居中
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < n; i += 1) {
+    minX = Math.min(minX, px[i] - radii[i]);
+    maxX = Math.max(maxX, px[i] + radii[i]);
+    minY = Math.min(minY, py[i] - radii[i]);
+    maxY = Math.max(maxY, py[i] + radii[i]);
+  }
+  const bw = Math.max(maxX - minX, 1);
+  const bh = Math.max(maxY - minY, 1);
+  const pad = 24;
+  const scale = Math.min((GRAPH_VIEW_W - pad * 2) / bw, (GRAPH_VIEW_H - pad * 2) / bh, 3);
+  const midX = (minX + maxX) / 2;
+  const midY = (minY + maxY) / 2;
+  return nodes.map((_, i) => ({
+    x: (px[i] - midX) * scale + cx,
+    y: (py[i] - midY) * scale + cy,
+    r: Math.min(30, Math.max(4, radii[i] * scale)),
+  }));
+}
+
+let graphSeq = 0;
+
+/** 拉取图谱数据并渲染；seq guard 防乱序（快速切页时旧请求不得覆盖新图）。 */
+async function renderGraph() {
+  const seq = ++graphSeq;
+  graphSummaryEl.textContent = "加载中…";
+  try {
+    const res = await ipcRenderer.invoke(GET_GRAPH_CHANNEL);
+    if (seq !== graphSeq) return;
+    drawGraph(res);
+  } catch {
+    if (seq !== graphSeq) return;
+    graphSummaryEl.textContent = "图谱拉取失败，请重开窗口";
+    graphCanvasEl.innerHTML = "";
+  }
+}
+
+function drawGraph(res) {
+  graphCanvasEl.innerHTML = "";
+  const nodes = Array.isArray(res && res.nodes) ? res.nodes : [];
+  const edges = Array.isArray(res && res.edges) ? res.edges : [];
+  if (nodes.length < 2) {
+    graphSummaryEl.textContent = nodes.length === 1 ? `只有 1 个实体（${nodes[0].name}），还连不成图` : "还没有可建图的实体";
+    graphCanvasEl.appendChild(el("div", "graph-empty", "实体太少，涟漪还漾不开——多聊聊，等人名、地名、事物在记忆里反复出现后，这里会自己连成网"));
+    return;
+  }
+  graphSummaryEl.textContent = `共 ${nodes.length} 个实体 · ${edges.length} 条共现关系 · 悬停高亮邻接，点击圆点跳转记忆页`;
+
+  const positions = layoutGraph(nodes, edges);
+  const svg = svgEl("svg", { viewBox: `0 0 ${GRAPH_VIEW_W} ${GRAPH_VIEW_H}`, preserveAspectRatio: "xMidYMid meet", role: "img", "aria-label": "实体共现图谱" });
+  const indexBy = new Map(nodes.map((node, i) => [node.name, i]));
+  const maxWeight = edges.reduce((max, edge) => Math.max(max, Number(edge.weight) || 0), 1);
+
+  // 邻接表（名字口径）：悬停高亮用
+  const neighborNames = nodes.map(() => new Set());
+  const edgeEls = [];
+  for (const edge of edges) {
+    const i = indexBy.get(edge.a);
+    const j = indexBy.get(edge.b);
+    if (i === undefined || j === undefined || i === j) continue;
+    neighborNames[i].add(edge.b);
+    neighborNames[j].add(edge.a);
+    const weight = Number(edge.weight) || 1;
+    const t = maxWeight > 1 ? (Math.min(weight, maxWeight) - 1) / (maxWeight - 1) : 0;
+    const p = positions[i];
+    const q = positions[j];
+    const line = svgEl("line", {
+      x1: p.x.toFixed(1), y1: p.y.toFixed(1),
+      x2: q.x.toFixed(1), y2: q.y.toFixed(1),
+      class: "graph-edge",
+      "stroke-opacity": (0.22 + t * 0.5).toFixed(2),
+      "stroke-width": (1 + t * 2.4).toFixed(2),
+    });
+    svg.appendChild(line);
+    edgeEls.push({ el: line, a: edge.a, b: edge.b });
+  }
+
+  const nodeEls = new Map();
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    const name = String(node.name ?? "");
+    const pos = positions[i];
+    const g = svgEl("g", { class: "graph-node" });
+    const title = svgEl("title");
+    // 实体名是 LLM 派生的不可信数据：只经 textContent 进 DOM
+    title.textContent = `${name} · ${node.count} 条记忆 · 热度 ${Math.round((Number(node.heat) || 0) * 100)}%`;
+    const circle = svgEl("circle", { cx: pos.x.toFixed(1), cy: pos.y.toFixed(1), r: pos.r.toFixed(1), fill: dotColorOf(name) });
+    const label = svgEl("text", { x: pos.x.toFixed(1), y: (pos.y + pos.r + 13).toFixed(1), "text-anchor": "middle" });
+    label.textContent = name;
+    g.appendChild(title);
+    g.appendChild(circle);
+    g.appendChild(label);
+    g.addEventListener("mouseenter", () => highlightGraph(name));
+    g.addEventListener("mouseleave", () => highlightGraph(null));
+    g.addEventListener("click", () => jumpToEntityFromGraph(name));
+    svg.appendChild(g);
+    nodeEls.set(name, g);
+  }
+
+  /** 悬停高亮：点亮邻接边与邻居，压暗其余；activeName 为 null 时复原。 */
+  function highlightGraph(activeName) {
+    for (const edge of edgeEls) {
+      const hot = activeName !== null && (edge.a === activeName || edge.b === activeName);
+      edge.el.classList.toggle("graph-edge--hot", hot);
+      edge.el.classList.toggle("graph-edge--dim", activeName !== null && !hot);
+    }
+    for (const [name, g] of nodeEls) {
+      const keep = activeName === null || name === activeName || neighborNames[indexBy.get(name)]?.has(activeName);
+      g.classList.toggle("graph-node--dim", !keep);
+    }
+  }
+
+  graphCanvasEl.appendChild(svg);
+}
+
+/** 图谱节点点击 → 跳记忆页并按实体过滤（复用实体 facet 联动，browse 会带过滤刷新）。 */
+function jumpToEntityFromGraph(entity) {
+  filters.entity = entity;
+  switchPage("memory");
+}
+
+// ── 检索台（复现 Agent 检索链路的调试页） ──────
+
+const consoleQueryEl = document.getElementById("console-query");
+const consoleRunEl = document.getElementById("console-run");
+const consoleLimitEl = document.getElementById("console-limit");
+const consoleRerankEl = document.getElementById("console-rerank");
+const consoleMetaEl = document.getElementById("console-meta");
+const consoleResultsEl = document.getElementById("console-results");
+
+const CONSOLE_SOURCE_LABELS = { keyword: "关键词", vector: "向量", hybrid: "混合" };
+
+function consoleSourceBadge(source) {
+  const known = source === "vector" || source === "hybrid" ? source : "keyword";
+  return el("span", `console-source console-source--${known}`, CONSOLE_SOURCE_LABELS[known]);
+}
+
+function consoleEntityChip(entity) {
+  const chip = el("span", "console-entity");
+  chip.appendChild(dotNode(dotColorOf(entity)));
+  chip.appendChild(el("span", null, entity));
+  return chip;
+}
+
+function renderConsoleResults(res) {
+  consoleResultsEl.innerHTML = "";
+  const hits = Array.isArray(res && res.hits) ? res.hits : [];
+  if (hits.length === 0) {
+    consoleMetaEl.textContent = "没有命中的记忆——换个说法再试";
+    const block = el("div", "entity-block");
+    block.appendChild(el("div", "attr-line empty", "没有命中的记忆——试试更具体的人名、地名或正在做的事"));
+    consoleResultsEl.appendChild(block);
+    return;
+  }
+  consoleMetaEl.textContent = `命中 ${hits.length} 条${res && res.reranked ? " · 已精排" : ""}`;
+  for (const hit of hits) {
+    const row = el("div", "console-row");
+    const head = el("div", "console-row-head");
+    const score = Number(hit && hit.score);
+    head.appendChild(el("span", "console-score", Number.isFinite(score) ? score.toFixed(2) : "0.00"));
+    head.appendChild(consoleSourceBadge(hit && hit.source));
+    const heat = Number(hit && hit.heat);
+    head.appendChild(heatBadge(Number.isFinite(heat) ? Math.min(1, Math.max(0, heat)) : 0));
+    const entities = Array.isArray(hit && hit.entities) ? hit.entities : [];
+    for (const entity of entities) {
+      if (typeof entity !== "string" || entity === "") continue;
+      head.appendChild(consoleEntityChip(entity));
+    }
+    row.appendChild(head);
+    row.appendChild(el("div", "console-content", typeof (hit && hit.content) === "string" ? hit.content : ""));
+    row.appendChild(el("div", "console-time", formatTime(hit && hit.createdAt)));
+    consoleResultsEl.appendChild(row);
+  }
+}
+
+let consoleSeq = 0;
+
+/** 检索台查询：走 search-memories 通道；seq guard 防乱序（同 browse() 模式）。 */
+async function runConsoleSearch() {
+  const text = consoleQueryEl.value.trim();
+  if (text === "") {
+    consoleMetaEl.textContent = "先输入要检索的内容，再回车或点「查询」";
+    return;
+  }
+  const seq = ++consoleSeq;
+  consoleRunEl.disabled = true;
+  consoleMetaEl.textContent = "检索中…";
+  try {
+    const res = await ipcRenderer.invoke(SEARCH_MEMORIES_CHANNEL, {
+      text,
+      limit: Number(consoleLimitEl.value) || 10,
+      rerank: consoleRerankEl.checked,
+    });
+    if (seq !== consoleSeq) return;
+    renderConsoleResults(res);
+  } catch {
+    if (seq !== consoleSeq) return;
+    consoleMetaEl.textContent = "检索失败，请稍后再试";
+    setEmpty(consoleResultsEl, "检索失败，请稍后再试", "div");
+  } finally {
+    if (seq === consoleSeq) consoleRunEl.disabled = false;
+  }
+}
+
+consoleRunEl.addEventListener("click", runConsoleSearch);
+consoleQueryEl.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") runConsoleSearch();
+});
+// 返回条数变化后重跑当前查询（若有），否则改条数看起来像没生效
+consoleLimitEl.addEventListener("change", () => {
+  if (consoleQueryEl.value.trim() !== "") runConsoleSearch();
+});
 
 // ── 设置页 ──────────────────────────────────────
 

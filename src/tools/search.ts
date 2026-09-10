@@ -1,9 +1,10 @@
 import type { PluginTool } from "@playa0v0/cyrene-plugin-sdk";
-import type { PluginConfig } from "../config";
+import { DEFAULT_RERANK_ENABLED, type PluginConfig } from "../config";
 import type { Logger } from "../logger";
 import { PLUGIN_ID } from "../plugin-id";
 import type { Embedder, MemoryId, SearchQuery } from "../core/types";
 import { createHybridSearcher, type HybridSearchStore } from "../retrieval/hybrid";
+import type { Reranker } from "../retrieval/rerank";
 import { formatHitList, readOptionalString, readRequiredString } from "./shared";
 
 export interface SearchToolDeps {
@@ -14,6 +15,11 @@ export interface SearchToolDeps {
   config: PluginConfig;
   embedder: Embedder;
   log: Logger;
+  /**
+   * 可选：提供后对混合检索出口做 LLM 精排（rerankEnabled 可关，默认开）。
+   * reranker 内部已 fail-safe（任何失败降级原序），缺席时保持纯初排。
+   */
+  reranker?: Reranker;
 }
 
 /** 「搜索记忆」工具：AI 用来按主题查历史事实。 */
@@ -48,9 +54,14 @@ export function createSearchTool(deps: SearchToolDeps): PluginTool {
           text,
           conversationId: readOptionalString(args.conversationId),
         };
-        const hits = await search(query);
+        let hits = await search(query);
         if (hits.length === 0) {
           return `没有找到与「${text}」相关的记忆。`;
+        }
+        // LLM 精排（v0.6.0）：只重排不增删，reranker 内部已 fail-safe
+        //（失败降级原序），这里不重复 try 包裹；bump 与输出都用最终结果。
+        if (deps.reranker && (deps.config.rerankEnabled ?? DEFAULT_RERANK_ENABLED)) {
+          hits = await deps.reranker.rerank(hits, { query: text });
         }
         // 访问加权：返回结果前 bump（不 await，内部已 fail-safe）。
         store.bumpHeat(hits.map((hit) => hit.record.id));

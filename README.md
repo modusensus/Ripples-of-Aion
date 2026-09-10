@@ -5,9 +5,9 @@
 <h1 align="center">⏳ 岁月涟漪 · Ripples of Aion</h1>
 
 <p align="center">
-  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.5.0-ff69b4?style=flat-square" alt="version"></a>
+  <a href="https://github.com/modusensus/Ripples-of-Aion/releases"><img src="https://img.shields.io/badge/version-0.6.0-ff69b4?style=flat-square" alt="version"></a>
   <a href="https://github.com/modusensus/Ripples-of-Aion/actions"><img src="https://img.shields.io/github/actions/workflow/status/modusensus/Ripples-of-Aion/test.yml?style=flat-square&label=CI" alt="CI"></a>
-  <img src="https://img.shields.io/badge/tests-94%20passed-ff69b4?style=flat-square" alt="tests">
+  <img src="https://img.shields.io/badge/tests-112%20passed-ff69b4?style=flat-square" alt="tests">
   <a href="https://codecov.io/gh/modusensus/Ripples-of-Aion"><img src="https://img.shields.io/codecov/c/github/modusensus/Ripples-of-Aion/main?style=flat-square&color=ff69b4&label=coverage" alt="coverage"></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-ff69b4?style=flat-square&logo=typescript&logoColor=white" alt="typescript">
   <img src="https://img.shields.io/badge/node-22%2B-ff69b4?style=flat-square&logo=nodedotjs&logoColor=white" alt="node">
@@ -42,10 +42,12 @@ Cyrene 的内置记忆（DMAE / 实体图谱 / RAG）不对插件开放写入，
 - **逐事实沉淀** — 每轮对话由 LLM 抽取 0~N 条事实，每条独立成记忆记录，利于检索精度与时间轴
 - **实体时间轴** — 抽取「会随时间变化的属性」声明（居住地、职业、宠物……），新值写入自动闭合旧值的 `valid_until`，「实体时间轴」工具可查任意属性的变更史
 - **写入单收口** — 所有写入走唯一 `remember()`，内容哈希去重，事件重放不产生重复
-- **混合检索** — 关键词召回打底 + 可选向量重排，权重向量 1.0 > 关键词 0.7；未配 embedding 自动降级纯关键词
+- **混合检索** — 关键词召回打底 + 可选向量重排，权重向量 1.0 > 关键词 0.7；未配 embedding 自动降级纯关键词；LLM 精排默认开启，失败自动降级原序
+- **记忆图谱页** — 实体共现力导向图（零依赖手写布局）：实体色点着色、半径随共现度、边权定粗细；点击节点跳记忆页按实体过滤
+- **检索台** — 与 search 工具同链路的可视化调试：相关度分数、来源徽章（关键词/向量/混合）、精排开关；面板检索不污染热度
 - **fail-safe** — 抽取/向量化/存储任何一步失败只 warn 降级，绝不拖累聊天主流程
 - **旁路队列** — `host:turn:finished` 是宿主不等的通知，全部重活在自建串行队列里做，全程尊重 `ctx.signal`
-- **记忆图谱窗口** — 插件卡片「打开」弹出记忆面板，可浏览、可遗忘
+- **记忆图谱窗口** — 插件卡片「打开」弹出记忆面板：五页导航（记忆/图谱/检索台/状态/设置），可浏览、可检索、可遗忘
 - **人类可读存储** — JSONL 追加日志 + 内存索引，不上 native sqlite，崩溃只丢最后一行
 
 ## 📦 安装
@@ -78,12 +80,17 @@ npm run deploy
 
 | 套件 | 用例 | 覆盖内容 |
 | --- | --- | --- |
-| `tests/store.test.ts` | 11 | JSONL 重放恢复、内容哈希去重、软删隔离、轮次永久标记、关键词排序、统计、空内容边界、时间轴闭合/去噪/软删隔离/重放持久 |
+| `tests/store.test.ts` | 24 | JSONL 重放恢复、内容哈希去重、软删隔离、轮次永久标记、关键词排序、统计、空内容边界、属性别名归一化、主观热度衰减/加成、时间轴闭合/去噪/软删隔离/重放持久 |
 | `tests/queue.test.ts` | 5 | 串行顺序、抛错不阻塞、signal 中止丢弃排队、signal 透传、已中止入队放行 |
 | `tests/pipeline.test.ts` | 7 | 逐事实入库带溯源、同轮重复摄入去重、坏 LLM 输出跳过、空消息边界、队列串行摄入、claims 挂载对应事实、旧格式无 claims |
-| `tests/extractor.test.ts` | 6 | 对象格式解析、旧格式兼容、栅栏/夹带文字容忍、坏 claim 逐条丢弃、claims 上限截断、完全不可解析 |
-| `tests/tools.test.ts` | 9 | 工具空态与降级提示、hybrid 排序/过滤语义、直通精排、hot-context 预算注入与中止、时间轴当前值/历史/属性过滤 |
-| `tests/contract.test.ts` | 3 | 产物契约（工具前缀/provider/IPC/订阅/dispose）、recall 空态、unregister 幂等 |
+| `tests/extractor.test.ts` | 8 | 对象格式解析、旧格式兼容、栅栏/夹带文字容忍、坏 claim 逐条丢弃、claims 上限截断、完全不可解析 |
+| `tests/consolidate.test.ts` | 23 | autoDream 整合引擎：主题聚类（claims 实体并集、枢纽阻尼）、质心剪枝、候选对上限、时间轴闭合预滤、LLM 裁定解析与证据强校验、持久化读回、fail-safe 降级 |
+| `tests/insights.test.ts` | 6 | 洞察读写：逐条清洗降级、全量替换、空/坏输入兜底 |
+| `tests/tools.test.ts` | 12 | 工具空态与降级提示、hybrid 排序/过滤语义、直通精排、LLM 精排开关与接线、hot-context 预算注入与中止、时间轴当前值/历史/属性过滤 |
+| `tests/rerank.test.ts` | 8 | LLM 精排：合法重排与调用契约、裸数组容错、非法索引剔除、漏项补尾、失败/垃圾输出降级原序、围栏容错、单候选零调用 |
+| `tests/graph.test.ts` | 6 | 实体图谱构建：并集建图、软删排除、共现边权与端点字典序归一、40 节点截断后边重算、空输入空结构、热度均值与缺省兜底 |
+| `tests/bounds.test.ts` | 6 | clampBounds 窗口边界收敛 |
+| `tests/contract.test.ts` | 7 | 产物契约（4 工具/provider/8 IPC/订阅/dispose）、get-state 空态、get-graph 建图、search-memories 降级与不 bump 热度、dream-now single-flight、配置白名单合并、unregister 幂等 |
 
 ```bash
 npm run typecheck   # tsc --noEmit
@@ -114,7 +121,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 | **v0.3.0** | 主观 heat 衰减（检索命中/同实体提及加权）+ 热上下文轻量化（关键词 only）+ 属性别名归一化 + moments-post 注入 | ✅ |
 | **v0.4.0** | autoDream 空闲整合：主题聚类 + 矛盾标注（标注型，不改写原记忆）+ 启动补跑 | ✅ |
 | **v0.5.0** | 图谱窗口大改版：三页导航（记忆/状态/设置）+ autoDream 沉淀页（主题簇/矛盾/立即做梦）+ 面板设置页 + 左右扩展布局 | ✅ |
-| **v0.6.0** | LLM rerank 精排 + 记忆图谱可视化 + 检索台 | 🚧 |
+| **v0.6.0** | LLM rerank 精排 + 记忆图谱可视化 + 检索台 | ✅ |
 | **长期** | 对接 CyreneCore Memory API（能力清单见 [docs/memory-api-wishlist.md](docs/memory-api-wishlist.md)） | 📋 |
 
 **与 CyreneCore 的分工**（2026-09 与维护者达成的共识，见 [Cyrene-Plugins#1](https://github.com/Playa-0v0/Cyrene-Plugins/issues/1)）：核心将沿 LLM Wiki 思路提供通用、稳定的记忆基础设施（客观知识页）；岁月涟漪专注**伴侣式主观记忆层**——heat、时间轴、自动整理、可视化与更具角色感的记忆策略。v0.3/v0.4 按自有存储推进；待核心 Memory API 定型后逐步迁移到公共接口，两者不互斥。
@@ -124,7 +131,7 @@ npm run check-sync  # prepack 闸门：源码变了产物没重建会 exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 94 个测试
+npm test           # 112 个测试
 npm run build
 npm run deploy     # 构建并安装到本机 Cyrene
 ```
@@ -166,10 +173,12 @@ Cyrene's built-in memory (DMAE / entity graph / RAG) is not writable by plugins,
 - **Per-fact records** — each turn yields 0~N LLM-extracted facts, each stored as an independent memory record for retrieval precision and timelines
 - **Entity timelines** — claims about *time-varying* attributes (residence, job, pets…) are extracted alongside facts; writing a new value auto-closes the old one's `valid_until`, and the timeline tool answers "what changed, and when"
 - **Single write gate** — every write goes through one `remember()` with content-hash dedup; event replays produce no duplicates
-- **Hybrid retrieval** — keyword recall as the floor + optional vector rerank, weighted vector 1.0 > keyword 0.7; degrades to keyword-only when embeddings are unconfigured
+- **Hybrid retrieval** — keyword recall as the floor + optional vector rerank, weighted vector 1.0 > keyword 0.7; degrades to keyword-only when embeddings are unconfigured; LLM rerank on by default, falling back to the original order on any failure
+- **Memory graph page** — force-directed entity co-occurrence map (hand-rolled, zero dependencies): entity-colored nodes sized by degree, edge weight as opacity; click a node to filter the memory page by that entity
+- **Search bench** — visual debugging over the same pipeline as the `search` tool: relevance scores, source badges (keyword/vector/hybrid), rerank toggle; panel searches never touch heat
 - **Fail-safe** — extraction, embedding, and storage failures only warn and degrade; the chat flow is never blocked
 - **Bypass queue** — `host:turn:finished` is a notification the host won't wait for; all heavy work runs in a self-managed serial queue that respects `ctx.signal`
-- **Memory graph window** — the plugin card's "open" button pops a memory panel for browsing and forgetting
+- **Memory graph window** — the plugin card's "open" button pops a five-page panel (memory / graph / search bench / insights / settings) for browsing, searching, and forgetting
 - **Human-readable storage** — JSONL append-only journal + in-memory index; no native sqlite; a crash loses at most the last line
 
 ## 📦 Install
@@ -202,12 +211,17 @@ Tests run on vitest; the contract suite **loads the built artifact directly** �
 
 | Suite | Cases | Coverage |
 | --- | --- | --- |
-| `tests/store.test.ts` | 11 | JSONL replay, content-hash dedup, soft-delete isolation, permanent turn markers, keyword ranking, stats, empty-content edge, timeline close/dedupe/soft-delete/persistence |
+| `tests/store.test.ts` | 24 | JSONL replay, content-hash dedup, soft-delete isolation, permanent turn markers, keyword ranking, stats, empty-content edge, attribute alias normalization, heat decay/boost, timeline close/dedupe/soft-delete/persistence |
 | `tests/queue.test.ts` | 5 | Serial order, error isolation, abort drops pending, signal passthrough, enqueue-after-abort |
 | `tests/pipeline.test.ts` | 7 | Per-fact ingestion with provenance, duplicate-turn dedup, malformed LLM output skip, empty-message edge, queued serial ingestion, claim attachment, legacy format without claims |
-| `tests/extractor.test.ts` | 6 | Object-format parsing, legacy array compat, fence/prose tolerance, per-claim rejection, claim cap, fully unparseable input |
-| `tests/tools.test.ts` | 9 | Tool empty-state fallbacks, hybrid ranking/filter semantics, passthrough rerank, hot-context budget injection and abort, timeline current/history/attribute filter |
-| `tests/contract.test.ts` | 3 | Artifact contract (tool prefix / provider / IPC / subscription / dispose), recall empty state, unregister idempotency |
+| `tests/extractor.test.ts` | 8 | Object-format parsing, legacy array compat, fence/prose tolerance, per-claim rejection, claim cap, fully unparseable input |
+| `tests/consolidate.test.ts` | 23 | autoDream consolidation engine: topic clustering (claims union, hub damping), centroid pruning, candidate-pair cap, closed-timeline prefilter, LLM verdict parsing with evidence validation, persistence read-back, fail-safe degradation |
+| `tests/insights.test.ts` | 6 | Insights read/write: per-entry sanitization, full replace, empty/malformed input fallbacks |
+| `tests/tools.test.ts` | 12 | Tool empty-state fallbacks, hybrid ranking/filter semantics, passthrough rerank, LLM rerank switch and wiring, hot-context budget injection and abort, timeline current/history/attribute filter |
+| `tests/rerank.test.ts` | 8 | LLM rerank: valid reorder and call contract, bare-array tolerance, invalid-index rejection, missing-index tail append, failure/garbage fallback to original order, fence tolerance, zero calls for single candidate |
+| `tests/graph.test.ts` | 6 | Entity graph building: union extraction, soft-delete exclusion, co-occurrence weights with endpoint ordering, edge recomputation after 40-node cap, empty-input empty graph, heat averaging with fallback |
+| `tests/bounds.test.ts` | 6 | clampBounds window-bounds convergence |
+| `tests/contract.test.ts` | 7 | Artifact contract (4 tools / provider / 8 IPC / subscription / dispose), get-state empty shape, get-graph building, search-memories degrade and no-heat-bump, dream-now single-flight, config whitelist merge, unregister idempotency |
 
 ```bash
 npm run typecheck   # tsc --noEmit
@@ -234,7 +248,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 | **v0.3.0** | Subjective heat decay (access/mention boost) + lightweight hot context (keyword-only) + attribute alias normalization + moments-post injection | ✅ |
 | **v0.4.0** | autoDream idle consolidation: topic clustering + conflict annotation (annotation-only, memories never rewritten) + catch-up on boot | ✅ |
 | **v0.5.0** | Panel redesign: three-page nav (memory / insights / settings) + autoDream insights page + in-panel settings + wider layout | ✅ |
-| **v0.6.0** | LLM rerank + memory graph visualization + search bench | 🚧 |
+| **v0.6.0** | LLM rerank + memory graph visualization + search bench | ✅ |
 | **Long term** | Integrate with the CyreneCore Memory API (capability wishlist in [docs/memory-api-wishlist.md](docs/memory-api-wishlist.md)) | 📋 |
 
 **Division of labor with CyreneCore** (consensus reached with the maintainer in 2026-09, see [Cyrene-Plugins#1](https://github.com/Playa-0v0/Cyrene-Plugins/issues/1)): the core will provide generic, stable memory infrastructure along the LLM Wiki direction (objective knowledge pages); Ripples of Aion focuses on the **companion-flavored subjective memory layer** — heat, timelines, auto-consolidation, visualization, and more characterful memory strategies. v0.3/v0.4 continue on private storage; once the core Memory API settles, migration to the public interface can happen gradually — the two are not mutually exclusive.
@@ -244,7 +258,7 @@ npm run check-sync  # prepack gate: stale artifact fails with exit 1
 ```bash
 npm install
 npm run typecheck
-npm test           # 94 tests
+npm test           # 112 tests
 npm run build
 npm run deploy     # build + install into local Cyrene
 ```

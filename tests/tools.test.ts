@@ -6,7 +6,8 @@ import { createTimelineTool } from "../src/tools/timeline";
 import { createForgetTool } from "../src/tools/forget";
 import { createHotContextProvider } from "../src/provider/hot-context";
 import { createHybridSearcher } from "../src/retrieval/hybrid";
-import { createPassThroughReranker } from "../src/retrieval/rerank";
+import { createPassThroughReranker, type Reranker } from "../src/retrieval/rerank";
+import type { SearchHit } from "../src/core/types";
 import { MemoryStore } from "../src/core/store";
 import { remember } from "../src/core/remember";
 import { createTempStorage, silentLog } from "./helpers";
@@ -130,7 +131,64 @@ describe("工具与检索层（源码级）", () => {
       { record: { id: "a", createdAt: 1, content: "A" }, score: 0.5, source: "keyword" as const },
       { record: { id: "b", createdAt: 2, content: "B" }, score: 0.9, source: "keyword" as const },
     ];
-    expect(await reranker.rerank(hits)).toEqual(hits);
+    expect(await reranker.rerank(hits, { query: "任意主题" })).toEqual(hits);
+  });
+
+  /** 手冲（heat 0.9）与美式（heat 0.2）：heatWeight=2 / decay=0 下初排手冲必在前。 */
+  async function makeHeatOrderedCoffeeStore(): Promise<MemoryStore> {
+    const store = new MemoryStore(storage.storage, silentLog);
+    const now = Date.now();
+    await remember(store, { id: "", createdAt: 1000, content: "用户喜欢喝手冲咖啡", heat: 0.9, lastTouchedAt: now }, silentLog);
+    await remember(store, { id: "", createdAt: 2000, content: "用户喜欢喝美式咖啡", heat: 0.2, lastTouchedAt: now }, silentLog);
+    return store;
+  }
+
+  it("search：rerankEnabled=false 时不调精排，输出保持初排序", async () => {
+    const store = await makeHeatOrderedCoffeeStore();
+    let called = false;
+    // 若被调用会整体反转顺序，便于一眼识别精排是否生效
+    const reranker: Reranker = {
+      rerank: async (candidates: SearchHit[]) => {
+        called = true;
+        return [...candidates].reverse();
+      },
+    };
+    const tool = createSearchTool({
+      store,
+      config: makeConfig({ heatWeight: 2, heatDecayPerDay: 0, rerankEnabled: false }),
+      embedder: { id: "none", embed: async () => null },
+      log: silentLog,
+      reranker,
+    });
+    const out = await tool.execute({ query: "咖啡" });
+    expect(called).toBe(false);
+    expect(out).toContain("找到 2 条");
+    // 初排：手冲（热度高）在前，精排未介入
+    expect(out.indexOf("手冲")).toBeLessThan(out.indexOf("美式"));
+    await store.awaitPendingWrites();
+  });
+
+  it("search：提供 reranker 时结果按精排序返回", async () => {
+    const store = await makeHeatOrderedCoffeeStore();
+    let seenQuery = "";
+    const reranker: Reranker = {
+      rerank: async (candidates: SearchHit[], context: { query: string }) => {
+        seenQuery = context.query;
+        return [...candidates].reverse();
+      },
+    };
+    const tool = createSearchTool({
+      store,
+      config: makeConfig({ heatWeight: 2, heatDecayPerDay: 0 }),
+      embedder: { id: "none", embed: async () => null },
+      log: silentLog,
+      reranker,
+    });
+    const out = await tool.execute({ query: "咖啡" });
+    expect(seenQuery).toBe("咖啡");
+    // 精排反转：美式排到了手冲前面
+    expect(out.indexOf("美式")).toBeLessThan(out.indexOf("手冲"));
+    await store.awaitPendingWrites();
   });
 
   it("hot-context：无 embedder 轻量注入且不超预算；命中记录热度上升；空库与中止返回空串", async () => {
