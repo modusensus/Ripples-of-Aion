@@ -120,6 +120,7 @@ Versioning follows SemVer (`MAJOR.MINOR.PATCH`). `manifest.json` and `package.js
 4. **Commit and push** → `git tag vX.Y.Z` → `git push origin vX.Y.Z` → the Release workflow packages the ZIP and creates the GitHub Release.
 5. **Edit the Release notes to the fixed format** (see below); release bodies stay short — details live in CHANGELOG.
 6. **Submit to Cyrene-Plugins** (when ready): PR with `manifest.json` + compiled `index.cjs` (+ panel assets); the upstream maintainers package the ZIP. `prepack` runs the check-sync gate automatically.
+   **Temporary (2026-09)**: the upstream Cyrene-Plugins repo on GitHub is temporarily unreachable (maintainer account suspended, appeal in progress) — until it returns, submit inclusion PRs to the [Gitee mirror](https://gitee.com/playa0/cyrene-plugins) or contact the maintainer directly (see [Ripples-of-Aion#13](https://github.com/modusensus/Ripples-of-Aion/issues/13)).
 
 **Fixed release-notes format** (title `岁月涟漪 · Ripples of Aion vX.Y.Z`):
 
@@ -269,6 +270,7 @@ Cyrene 插件 API 还是 v1，仍在演进。把本插件适配到其他宿主�
 4. **提交推送** → `git tag vX.Y.Z` → `git push origin vX.Y.Z` → Release 工作流会打包 ZIP 并创建 GitHub Release。
 5. **按固定格式改写 Release 说明**（见下）；Release 说明保持简短，细节留在 CHANGELOG。
 6. **提交 Cyrene-Plugins 收录**（就绪后）：PR 提交 `manifest.json` + 编译产物 `index.cjs`（+ panel 资源）；ZIP 由上游维护者统一打包。`prepack` 会自动跑 check-sync 闸门。
+   **临时备注（2026-09）**：GitHub 上的 Cyrene-Plugins 上游仓库暂时无法访问（维护者账号被封禁、申诉中）——恢复前收录 PR 提交到 [Gitee 镜像](https://gitee.com/playa0/cyrene-plugins)，或直接联系维护者（见 [Ripples-of-Aion#13](https://github.com/modusensus/Ripples-of-Aion/issues/13)）。
 
 **Release 说明固定格式**（标题 `岁月涟漪 · Ripples of Aion vX.Y.Z`）：
 

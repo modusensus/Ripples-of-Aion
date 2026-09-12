@@ -27,6 +27,8 @@
 
 `岁月涟漪`（Ripples of Aion，插件 id `ripples-of-aion`）是一个 [Cyrene](https://github.com/Playa-0v0/Cyrene-Plugins) 插件，为昔涟提供**结构化记忆层**。它不是内置记忆引擎的替代品，而是一个并行记忆层：内置引擎对外只读，而它把每一轮对话中值得长期记住的事实**逐条沉淀、去重入库、混合检索、按需注入**。
 
+> **临时备注（2026-09）**：Cyrene 上游维护者的 GitHub 账号暂时被封禁（申诉中），上游仓库 [`Playa-0v0/Cyrene-Plugins`](https://github.com/Playa-0v0/Cyrene-Plugins) 暂无法访问；插件收录与分发暂由 [Gitee 镜像](https://gitee.com/playa0/cyrene-plugins) 维护，岁月涟漪 v0.6.0 已收录。详见 [issue #13](https://github.com/modusensus/Ripples-of-Aion/issues/13)，上游恢复后本备注即撤下。
+
 ## 💭 它能解决什么问题
 
 Cyrene 的内置记忆（DMAE / 实体图谱 / RAG）不对插件开放写入，插件读不到内部向量库。岁月涟漪做内置没有的那一层：
@@ -157,6 +159,8 @@ MIT
 > **Time says nothing; the ripples remember.** — Every little thing you let slip stirs a ripple across the pond of time. Ripples of Aion gathers what the ripples leave behind — softly and faithfully, the way someone keeps the small things you never thought mattered.
 
 Ripples of Aion (岁月涟漪, plugin id `ripples-of-aion`) is a [Cyrene](https://github.com/Playa-0v0/Cyrene-Plugins) plugin that provides a **structured memory layer** for the companion. It is not a replacement for the built-in memory engine but a parallel memory layer: the engine is read-only to plugins, while this plugin settles each turn's memorable facts **record by record — deduplicated, hybrid-searchable, and injected on demand**.
+
+> **Temporary note (2026-09)**: the Cyrene maintainer's GitHub account is temporarily suspended (appeal in progress), so the upstream repository [`Playa-0v0/Cyrene-Plugins`](https://github.com/Playa-0v0/Cyrene-Plugins) is unreachable for now; plugin inclusion and distribution are temporarily maintained via the [Gitee mirror](https://gitee.com/playa0/cyrene-plugins), where Ripples of Aion v0.6.0 is already listed. See [issue #13](https://github.com/modusensus/Ripples-of-Aion/issues/13) — this note will be removed once the upstream recovers.
 
 ## 💭 What it does
 
